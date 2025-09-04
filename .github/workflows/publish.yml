@@ -1,0 +1,91 @@
+name: Phoenix SDKs
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+env:
+  SCOPE: phoenix0x02
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+        env:
+          HUSKY: 0
+
+      - name: Build packages
+        run: pnpm build
+
+      # Option 1: Publish to GitHub Packages
+      - name: Configure npm for GitHub Packages
+        if: github.ref == 'refs/heads/main'
+        run: |
+          npm config set @${{ env.SCOPE }}:registry https://npm.pkg.github.com
+          npm config set //npm.pkg.github.com/:_authToken ${{ secrets.ACCESS_TOKEN }}
+
+      # - name: Publish CLMM SDK to GitHub Packages
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     cd packages/clmm
+      #     npm publish --registry https://npm.pkg.github.com
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+
+      - name: Publish DLMM SDK to GitHub Packages
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd packages/dlmm
+          npm publish --registry https://npm.pkg.github.com
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+
+      # - name: Publish Aggregator SDK to GitHub Packages
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     cd packages/aggregator
+      #     npm publish --registry https://npm.pkg.github.com
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+
+      # Alternative Option 2: Publish to npmjs.org (uncomment if needed)
+      # - name: Configure npm for npmjs
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     npm config set registry https://registry.npmjs.org/
+      #     npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+
+      # - name: Publish CLMM SDK to npmjs
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     cd packages/clmm
+      #     npm version patch --no-git-tag-version
+      #     npm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # - name: Publish DLMM SDK to npmjs
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     cd packages/dlmm
+      #     npm version patch --no-git-tag-version
+      #     npm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

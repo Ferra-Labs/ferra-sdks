@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": false,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@phoenix0x02/clmm": ["packages/clmm/src"],
+      "@phoenix0x02/dlmm": ["packages/dlmm/src"],
+      "@phoenix0x02/aggregator": ["packages/aggregator/src"]
+    }
+  },
+  "references": [
+    { "path": "./packages/clmm" },
+    { "path": "./packages/dlmm" },
+    { "path": "./packages/aggregator" }
+  ],
+  "exclude": ["node_modules", "dist", "build"]
+}

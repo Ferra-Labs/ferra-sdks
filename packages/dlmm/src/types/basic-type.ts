@@ -1,0 +1,11 @@
+// ===== Basic Types =====
+export type Address = string;
+export type U8 = string;
+export type U16 = string;
+export type U32 = string;
+export type U64 = string;
+export type U128 = string;
+export type U256 = string;
+export type ObjectId = string;
+export type SuiAddress = string;
+export type TypeName = string;

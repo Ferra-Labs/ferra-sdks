@@ -1,0 +1,66 @@
+{
+  "name": "@phoenix0x02/ferra-sdks",
+  "version": "1.2.7",
+  "description": "DEX SDKs for CLMM and DLMM protocols",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r dev",
+    "lint": "pnpm -r lint",
+    "lint:fix": "pnpm -r lint:fix",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean",
+    "type-check": "pnpm -r type-check",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build && changeset publish",
+    "prepare": "husky install",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.5",
+    "@commitlint/cli": "^17.8.1",
+    "@commitlint/config-conventional": "^17.8.1",
+    "@mysten/bcs": "^1.6.3",
+    "@mysten/sui": "^1.33.0",
+    "@types/node": "^20.19.1",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.5.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^14.0.1",
+    "prettier": "^3.5.3",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "typescript": "^5.4.5",
+      "string-width": "^4.2.3",
+      "wrap-ansi": "^7.0.0",
+      "typedoc": "^0.25.13"
+    }
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "author": "Ferra Teams",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/phoenix0x02/ferra-sdks/issues"
+  },
+  "homepage": "https://github.com/phoenix0x02/ferra-sdks/tree/main#readme"
+}
