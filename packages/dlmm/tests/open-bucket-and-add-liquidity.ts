@@ -19,7 +19,7 @@ export async function main() {
     keypair = Ed25519Keypair.deriveKeypair(mnemonic)
   }
 
-  const wallet = keypair.getPublicKey().toSuiAddress()
+  const wallet = "0xac5bceec1b789ff840d7d4e6ce4ce61c90d190a7f8c4f4ddf0bff6ee2413c33c"
   const sdk = initFerraSDK({ network: 'beta', wallet })
   const pair = await sdk.Pair.getPair('0xe82b6f6d569907f87c2c3e8748bc393d9f19ec7fc70c53f54354d7da633cc18f')
 
@@ -34,7 +34,7 @@ export async function main() {
   const slippage = 0.5
 
   const TEST = true
-  const COUNT = 10
+  const COUNT = 10000
   const distribution = DistributionUtils.createParams('SPOT', {
     activeId: currentPairId,
     binRange: [currentPairId - COUNT, currentPairId + COUNT],
@@ -45,7 +45,7 @@ export async function main() {
 
   const tx = new Transaction()
   const [_, position] = TransactionUtil.createLbPosition(pair, sdk.sdkOptions, tx)
-  console.log('distribution', distribution.ids.length);
+
   const BATCH_SIZE = 400;
   for (let i = 0; i < BATCH_SIZE * 1000; i += BATCH_SIZE) {
     const ids = distribution.ids.slice(i, (i + BATCH_SIZE));
@@ -67,13 +67,10 @@ export async function main() {
 
   let res
 
-  if (!res) {
-    return;
-  }
-
   if (TEST) {
-    res = await sdk.fullClient.dryRunTransactionBlock({
-      transactionBlock: await tx.build({ client: sdk.fullClient }),
+    res = await sdk.fullClient.devInspectTransactionBlock({
+      transactionBlock: tx,
+      sender: wallet
     })
     const gas =
       BigInt(res.effects!.gasUsed.storageCost) - BigInt(res.effects!.gasUsed.storageRebate) + BigInt(res.effects!.gasUsed.computationCost)

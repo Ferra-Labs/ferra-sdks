@@ -4,10 +4,10 @@ import { checkInvalidSuiAddress } from '../utils'
 
 const SDKConfig = {
   clmmConfig: {
-    pools_id: '0xcf1b1f1f035623d1288fedbf6b188cd4b90382235bfcd646cd2a9b0a8f9c4212',
-    global_config_id: '0x742954bcd338245136baab63a2caea8c604a3deb1799a6f8b1652362c55ee1f3',
-    global_rewarder_vault_id: '0x699fb87c6b489645076ddb94025d58c026c250fa6ebaa9a7b8599e7e53945621',
-    admin_cap_id: '0x7079548ef164ebd71ad0e24f517d8a18eba8353682065da48c96887c1c5ee948',
+    pools_id: '0xadae2faa029b3b0be430e3b1b787ac0d528f3b3be9d32c61530fabaa6f171431',
+    global_config_id: '0x2d1269e1ade81a5189b625ee87c9425bc29249d21d273245269eb07e67dc6965',
+    global_rewarder_vault_id: '0xbe8d4702ed1f4bf2ad8101ee68d785538fb6d50e2f187bbafd134d1e2c67aa89',
+    admin_cap_id: '',
   }
 }
 //https://suivision.xyz/txblock/B4WbFgHnh8j5VYJstjQog87hsK5ya7sbXmjsBSF87ogj?tab=Changes
@@ -19,13 +19,13 @@ export const clmmBeta: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   clmm_pool: {
-    package_id: '0x14accb5e43c552958eaf1128556dfe3650235c835eb220d4a09bafd2972002b0',
-    published_at: '0x14accb5e43c552958eaf1128556dfe3650235c835eb220d4a09bafd2972002b0',
+    package_id: '0x8e1144ad9fbc388c61ac30d74ebef4eb741d213e3a086da48124256290233723',
+    published_at: '0x8e1144ad9fbc388c61ac30d74ebef4eb741d213e3a086da48124256290233723',
     config: SDKConfig.clmmConfig,
   },
   integrate: {
-    package_id: '0x0fd5ebabe006c738bbe5e9a2593b8406ceccdf4d83f9f6243e2e9064d478cc89',
-    published_at: '0x0fd5ebabe006c738bbe5e9a2593b8406ceccdf4d83f9f6243e2e9064d478cc89',
+    package_id: '0x46f0964200ea12c1bd3f7280cb49f55c11e4c0df8ae2a40f71253a3a19859a17',
+    published_at: '0x46f0964200ea12c1bd3f7280cb49f55c11e4c0df8ae2a40f71253a3a19859a17',
   },
   swapCountUrl: 'https://api-beta.ferra.xyz/clmm/swap/pools'
 }

@@ -37,7 +37,7 @@ export class TransactionUtil {
    */
   public static createFatory = (params: CreateFactoryParams, sdkOptions: SdkOptions) => {
     const {
-      dlmm_pool: { package_id },
+      dlmm_pool: { published_at },
     } = sdkOptions
     const { feeRecipient, flashLoanFee, owner } = params
 
@@ -61,7 +61,7 @@ export class TransactionUtil {
 
     // Call factory creation function
     tx.moveCall({
-      target: `${package_id}::lb_factory::new`,
+      target: `${published_at}::lb_factory::new`,
       arguments: [tx.pure.address(owner), tx.pure.address(feeRecipient), tx.pure.u256(flashLoanFee)],
     })
 
@@ -84,7 +84,7 @@ export class TransactionUtil {
     const { tokenXType, tokenYType, activeId, binStep } = params
 
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
     const { global_config, pairs_id } = config ?? {}
 
@@ -108,7 +108,7 @@ export class TransactionUtil {
 
     // Call create_lb_pair function
     tx.moveCall({
-      target: `${package_id}::lb_factory::create_pair`,
+      target: `${published_at}::lb_factory::create_pair`,
       typeArguments: [tokenXType, tokenYType],
       arguments: [
         tx.object(global_config),
@@ -131,7 +131,7 @@ export class TransactionUtil {
    */
   public static createLbPosition(pair: LBPair, sdkOptions: SdkOptions, tx?: Transaction): [Transaction, TransactionResult[number]] {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config } = config ?? {}
@@ -144,7 +144,7 @@ export class TransactionUtil {
 
     // Open a new position and get the bucket
     const [bucket] = tx.moveCall({
-      target: `${package_id}::lb_pair::open_position`,
+      target: `${published_at}::lb_pair::open_position`,
       arguments: [tx.object(global_config), tx.object(pair.id)],
       typeArguments: [pair.tokenXType, pair.tokenYType],
     })
@@ -173,7 +173,7 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config } = config ?? {}
@@ -186,7 +186,7 @@ export class TransactionUtil {
 
     // Call add_liquidity function with distributions
     tx.moveCall({
-      target: `${package_id}::lb_pair::add_liquidity`,
+      target: `${published_at}::lb_pair::add_liquidity`,
       arguments: [
         tx.object(global_config),
         tx.object(pair.id),
@@ -227,7 +227,7 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config } = config ?? {}
@@ -240,7 +240,7 @@ export class TransactionUtil {
 
     // Call add_liquidity function with distributions
     tx.moveCall({
-      target: `${package_id}::lb_pair::add_liquidity2`,
+      target: `${published_at}::lb_pair::add_liquidity2`,
       arguments: [
         tx.object(global_config),
         tx.object(pair.id),
@@ -274,7 +274,7 @@ export class TransactionUtil {
    */
   public static removeLiquidity(pair: LBPair, { binIds, positionId }: RemoveLiquidityParams, sdkOptions: SdkOptions, tx?: Transaction) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config } = config ?? {}
@@ -287,7 +287,7 @@ export class TransactionUtil {
 
     // Call remove_liquidity and get output coins
     const [coinA, coinB] = tx.moveCall({
-      target: `${package_id}::lb_pair::remove_liquidity`,
+      target: `${published_at}::lb_pair::remove_liquidity`,
       arguments: [
         tx.object(global_config),
         tx.object(pair.id),
@@ -316,7 +316,7 @@ export class TransactionUtil {
    */
   public static removeLiquidityV2(pair: LBPair, { binIds, positionId }: RemoveLiquidityParams, sdkOptions: SdkOptions, tx?: Transaction) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config } = config ?? {}
@@ -329,7 +329,7 @@ export class TransactionUtil {
 
     // Call remove_liquidity and get output coins
     const [coinA, coinB] = tx.moveCall({
-      target: `${package_id}::lb_pair::remove_liquidity2`,
+      target: `${published_at}::lb_pair::remove_liquidity2`,
       arguments: [
         tx.object(global_config),
         tx.object(pair.id),
@@ -363,7 +363,7 @@ export class TransactionUtil {
    */
   public static closePosition(pair: LBPair, { positionId }: ClosePositionParams, sdkOptions: SdkOptions, tx?: Transaction) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config } = config ?? {}
@@ -375,7 +375,7 @@ export class TransactionUtil {
 
     // Call remove_liquidity and get output coins
     tx.moveCall({
-      target: `${package_id}::lb_pair::close_position`,
+      target: `${published_at}::lb_pair::close_position`,
       arguments: [tx.object(global_config), tx.object(pair.id), tx.object(positionId)],
       typeArguments: [pair.tokenXType, pair.tokenYType],
     })
@@ -405,7 +405,7 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config } = config ?? {}
@@ -418,7 +418,7 @@ export class TransactionUtil {
 
     // Call swap function and get output receipts
     const [coinXReceipt, coinYReceipt] = tx.moveCall({
-      target: `${package_id}::lb_pair::swap`,
+      target: `${published_at}::lb_pair::swap`,
       arguments: [
         tx.object(global_config),
         tx.object(pairId),
@@ -560,7 +560,7 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config, reward_vault } = config ?? {}
@@ -575,12 +575,14 @@ export class TransactionUtil {
 
     tx ??= new Transaction()
     const coin = tx.moveCall({
-      target: `${package_id}::lb_pair::collect_position_rewards`,
+      target: `${published_at}::lb_pair::collect_position_rewards`,
       arguments: [
         tx.object(global_config),
         tx.object(pairId),
+        tx.pure.vector('u32', binIds),
         tx.object(positionId),
         tx.object(reward_vault),
+        tx.object(CLOCK_ADDRESS),
       ],
       typeArguments: [typeX, typeY, rewardCoin],
     })
@@ -618,7 +620,7 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config, reward_vault } = config ?? {}
@@ -633,12 +635,15 @@ export class TransactionUtil {
 
     tx ??= new Transaction()
     const coin = tx.moveCall({
-      target: `${package_id}::lb_pair::collect_position_rewards2`,
+      target: `${published_at}::lb_pair::collect_position_rewards2`,
       arguments: [
         tx.object(global_config),
         tx.object(pairId),
+        tx.pure.u64(binIds.length),
+        tx.pure.vector('u128', encodeU32ToU128(binIds)),
         tx.object(positionId),
         tx.object(reward_vault),
+        tx.object(CLOCK_ADDRESS),
       ],
       typeArguments: [typeX, typeY, rewardCoin],
     })
@@ -675,13 +680,18 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id },
+      dlmm_pool: { published_at },
     } = sdkOptions
 
     tx ??= new Transaction()
     const amount = tx.moveCall({
-      target: `${package_id}::lb_pair::get_pending_rewards`,
-      arguments: [tx.object(pairId), tx.object(positionId), tx.pure.vector('u32', binIds)],
+      target: `${published_at}::lb_pair::get_pending_rewards`,
+      arguments: [
+        tx.object(pairId), 
+        tx.object(positionId), 
+        tx.pure.vector('u32', binIds), 
+        tx.object(CLOCK_ADDRESS)
+      ],
       typeArguments: [typeX, typeY, rewardCoin],
     })
 
@@ -717,13 +727,19 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id },
+      dlmm_pool: { published_at },
     } = sdkOptions
 
     tx ??= new Transaction()
     const amount = tx.moveCall({
-      target: `${package_id}::lb_pair::get_pending_rewards2`,
-      arguments: [tx.object(pairId), tx.object(positionId), tx.pure.u64(binIds.length), tx.pure.vector('u128', encodeU32ToU128(binIds))],
+      target: `${published_at}::lb_pair::get_pending_rewards2`,
+      arguments: [
+        tx.object(pairId),
+        tx.object(positionId),
+        tx.pure.u64(binIds.length),
+        tx.pure.vector('u128', encodeU32ToU128(binIds)),
+        tx.object(CLOCK_ADDRESS),
+      ],
       typeArguments: [typeX, typeY, rewardCoin],
     })
 
@@ -760,7 +776,7 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config, reward_vault } = config ?? {}
@@ -775,8 +791,8 @@ export class TransactionUtil {
 
     tx ??= new Transaction()
     const [coinX, coinY] = tx.moveCall({
-      target: `${package_id}::lb_pair::collect_position_fees`,
-      arguments: [tx.object(global_config), tx.object(pairId), tx.object(positionId), tx.pure.vector('u32', binIds), tx.object(CLOCK_ADDRESS)],
+      target: `${published_at}::lb_pair::collect_position_fees`,
+      arguments: [tx.object(global_config), tx.object(pairId), tx.object(positionId), tx.pure.vector('u32', binIds)],
       typeArguments: [typeX, typeY],
     })
 
@@ -813,7 +829,7 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config, reward_vault } = config ?? {}
@@ -828,14 +844,13 @@ export class TransactionUtil {
 
     tx ??= new Transaction()
     const [coinX, coinY] = tx.moveCall({
-      target: `${package_id}::lb_pair::collect_position_fees2`,
+      target: `${published_at}::lb_pair::collect_position_fees2`,
       arguments: [
         tx.object(global_config),
         tx.object(pairId),
         tx.object(positionId),
         tx.pure.u64(binIds.length),
         tx.pure.vector('u128', encodeU32ToU128(binIds)),
-        tx.object(CLOCK_ADDRESS)
       ],
       typeArguments: [typeX, typeY],
     })
@@ -870,7 +885,7 @@ export class TransactionUtil {
    */
   static lockPosition({ positionId, untilTimestamp, pairId, typeX, typeY }: LockPositionParams, sdkOptions: SdkOptions, tx?: Transaction) {
     const {
-      dlmm_pool: { package_id, config },
+      dlmm_pool: { published_at, config },
     } = sdkOptions
 
     const { global_config, reward_vault } = config ?? {}
@@ -881,7 +896,7 @@ export class TransactionUtil {
 
     tx ??= new Transaction()
     tx.moveCall({
-      target: `${package_id}::lb_pair::lock_position`,
+      target: `${published_at}::lb_pair::lock_position`,
       arguments: [
         tx.object(global_config),
         tx.object(pairId),
@@ -924,17 +939,17 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id },
+      dlmm_pool: { published_at },
     } = sdkOptions
 
     tx ??= new Transaction()
-    const amount = tx.moveCall({
-      target: `${package_id}::lb_pair::get_pending_fees`,
+    const [_, __, feeX, feeY] = tx.moveCall({
+      target: `${published_at}::lb_pair::get_pending_fees`,
       arguments: [tx.object(pairId), tx.object(positionId), tx.pure.vector('u32', binIds)],
       typeArguments: [typeX, typeY],
     })
 
-    return [tx, amount] as const
+    return [tx, feeX, feeY] as const
   }
 
   /**
@@ -966,16 +981,16 @@ export class TransactionUtil {
     tx?: Transaction
   ) {
     const {
-      dlmm_pool: { package_id },
+      dlmm_pool: { published_at },
     } = sdkOptions
 
     tx ??= new Transaction()
-    const amount = tx.moveCall({
-      target: `${package_id}::lb_pair::get_pending_fees2`,
+    const [_, __, feeX, feeY] = tx.moveCall({
+      target: `${published_at}::lb_pair::get_pending_fees2`,
       arguments: [tx.object(pairId), tx.object(positionId), tx.pure.u64(binIds.length), tx.pure.vector('u128', encodeU32ToU128(binIds))],
       typeArguments: [typeX, typeY],
     })
 
-    return [tx, amount] as const
+    return [tx, feeX, feeY] as const
   }
 }

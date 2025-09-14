@@ -39,7 +39,7 @@ export async function main() {
 
   const TEST = true
 
-  const pair = await sdk.Pair.getPair('0x2e963a9d0f5d4e64032740e25f59e4e272ff334495f93be4630b441dfce8a19c')
+  const pair = await sdk.Pair.getPair('0x02fcbaf9c8c4844e4dba54a9328bc51ffd20c47b3ce36959f185456666fb8a3f')
   if (!pair) {
     throw new Error('Pair not found')
   }
@@ -50,8 +50,8 @@ export async function main() {
   console.log('swapOut', binsData.reduce((p, v) => ((p += BigInt(v.reserve_x) + BigInt(v.fee_x)), p), 0n))
   console.log('swapOut', binsData.reduce((p, v) => ((p += BigInt(v.reserve_y) + BigInt(v.fee_y)), p), 0n))
 
-  const AMOUNT = 20_000_000_000n;
-  const XTOY = true
+  const AMOUNT = 10_000_000n;
+  const XTOY = false
 
   const swapOut = sdk.Swap.calculateRates(pair, {
     amount: AMOUNT,

@@ -3,9 +3,9 @@ import { checkInvalidSuiAddress } from '../utils'
 
 const SDKConfig = {
   dlmmConfig: {
-    global_config: '0x975926b55ef6818b85a31811f3bc012f66e8d02218b57625a6d333a0c10dc26c',
-    pairs_id: '0xa71885b3cfdf98253af25c495394fa30e08ed63ee2f059901f878d7513387fb6',
-    reward_vault: '0xdb2ea4b741b189a6cf930a32b0f8ad1d6cae6c7c4efed3484df560b435bf6de2',
+    global_config: '0x81840b602be475fabb192c9c6e2a56d38cf79b9bcb6f2f4f88a3421cad8dfe25',
+    pairs_id: '0xeb4e62303fe217e469bba5b07c71374316c2169d16e4f7824b5fe6409c11694a',
+    reward_vault: '0xd5d5906687702e8eae6c9aff915a3485eaddc24203abd7648e73cca89ef62b00',
   }
 }
 // https://suivision.xyz/txblock/5tdiGxMn6LbxQdXSvc61LDWcT1ZLw5bpYtZMkisqqhTm?tab=Changes
@@ -16,8 +16,8 @@ export const dlmmBeta: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   dlmm_pool: {
-    package_id: '0x73310073608c7d93f1d76b35d9ccd455a359c9380895ef234e20aed216c45ed3',
-    published_at: '0x73310073608c7d93f1d76b35d9ccd455a359c9380895ef234e20aed216c45ed3',
+    package_id: '0x8c85cc6e2cecad2e0fad9e2d973889cf245aab35e5de0bfc8c4f3388be3d0acd',
+    published_at: '0x8c85cc6e2cecad2e0fad9e2d973889cf245aab35e5de0bfc8c4f3388be3d0acd',
     config: SDKConfig.dlmmConfig,
   },
   integrate: {

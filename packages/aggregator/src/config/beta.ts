@@ -4,8 +4,8 @@ import { checkInvalidSuiAddress } from '../utils'
 const SDKConfig = {
   aggConfig: {
     Ferra: {
-      clmm_global_config: "0x742954bcd338245136baab63a2caea8c604a3deb1799a6f8b1652362c55ee1f3",
-      dlmm_global_config: "0x975926b55ef6818b85a31811f3bc012f66e8d02218b57625a6d333a0c10dc26c"
+      clmm_global_config: "0x2d1269e1ade81a5189b625ee87c9425bc29249d21d273245269eb07e67dc6965",
+      dlmm_global_config: "0x81840b602be475fabb192c9c6e2a56d38cf79b9bcb6f2f4f88a3421cad8dfe25"
     },
   }
 }
@@ -17,8 +17,8 @@ export const aggBeta: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   agg_pkg: {
-    package_id: '0x632f0e228c5d6509b6838ee87747c1e7f62c151fd3916264120944ef34844c2a',
-    published_at: '0x632f0e228c5d6509b6838ee87747c1e7f62c151fd3916264120944ef34844c2a',
+    package_id: '0xaf5bf815babb462f6bdfd006edb00f3f53d382cf72901e8b11c1cae426c88cdd',
+    published_at: '0xaf5bf815babb462f6bdfd006edb00f3f53d382cf72901e8b11c1cae426c88cdd',
     config: SDKConfig.aggConfig,
   },
   quoterUrl: 'https://agg-beta.ferra.xyz/agg/quote',

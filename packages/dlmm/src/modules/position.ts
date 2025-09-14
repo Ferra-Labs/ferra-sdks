@@ -11,7 +11,7 @@ import { LbPositionOnChain, PositionBinOnchain, PositionInfoOnChain, PositionRew
 import { getAmountOutOfBin } from '../utils/bin_helper'
 import { Transaction } from '@mysten/sui/transactions'
 import { inspect } from 'util'
-import { bcs } from '@mysten/bcs'
+import { bcs } from '@mysten/sui/bcs'
 import { CLOCK_ADDRESS } from '../types'
 
 /**
@@ -275,8 +275,19 @@ export class PositionModule implements IModule {
     const rewards: PositionReward[] = []
     const sender = this.sdk.senderAddress
     const tx = new Transaction()
+    TransactionUtil.collectPositionFees(
+      {
+        pairId: pair.id,
+        positionId,
+        typeX: pair.tokenXType,
+        typeY: pair.tokenYType,
+        binIds,
+      },
+      this.sdk.sdkOptions,
+      tx
+    )
     for (const reward of pair.rewarders) {
-      TransactionUtil.getPositionRewards(
+      TransactionUtil.collectPositionRewards(
         {
           pairId: pair.id,
           positionId,
@@ -290,16 +301,27 @@ export class PositionModule implements IModule {
       )
     }
     const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
+    
+    let skipped = false;
 
     for (const index in res.results ?? []) {
+      if (!skipped) {
+        skipped = true;
+      continue
+      }
       const result = res.results![index]
-      const reward = pair.rewarders[index]
-      const resValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
-      const value = bcs.u64().parse(resValue)
 
+      const coin = "0x2::coin::Coin";
+      if (!result.returnValues?.[0]?.[1].startsWith(coin)) {
+        continue
+      }
+      
+      const resValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
+      const value = bcs.struct("", { address: bcs.Address, value: bcs.u64() }).parse(resValue)
+      
       rewards.push({
-        amount: value,
-        coinType: normalizeStructTag(reward.reward_coin),
+        amount: value.value,
+        coinType: normalizeStructTag(result.returnValues?.[0]?.[1]),
       })
     }
 
@@ -324,8 +346,20 @@ export class PositionModule implements IModule {
     const rewards: PositionReward[] = []
     const sender = this.sdk.senderAddress
     const tx = new Transaction()
+    TransactionUtil.collectPositionFeesV2(
+      {
+        pairId: pair.id,
+        positionId,
+        typeX: pair.tokenXType,
+        typeY: pair.tokenYType,
+        binIds,
+      },
+      this.sdk.sdkOptions,
+      tx
+    )
+    
     for (const reward of pair.rewarders) {
-      TransactionUtil.getPositionRewardsV2(
+      TransactionUtil.collectPositionRewards(
         {
           pairId: pair.id,
           positionId,
@@ -339,16 +373,26 @@ export class PositionModule implements IModule {
       )
     }
     const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
+    let skipped = false;
 
     for (const index in res.results ?? []) {
+      if (!skipped) {
+        skipped = true;
+      continue
+      }
       const result = res.results![index]
-      const reward = pair.rewarders[index]
-      const resValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
-      const value = bcs.u64().parse(resValue)
 
+      const coin = "0x2::coin::Coin";
+      if (!result.returnValues?.[0]?.[1].startsWith(coin)) {
+        continue
+      }
+      
+      const resValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
+      const value = bcs.struct("", { address: bcs.Address, value: bcs.u64() }).parse(resValue)
+      
       rewards.push({
-        amount: value,
-        coinType: normalizeStructTag(reward.reward_coin),
+        amount: value.value,
+        coinType: normalizeStructTag(result.returnValues?.[0]?.[1]),
       })
     }
 
@@ -450,6 +494,7 @@ export class PositionModule implements IModule {
     let rewards: [PositionReward, PositionReward] | null = null
     const sender = this.sdk.senderAddress
     const tx = new Transaction()
+
     TransactionUtil.getPositionFees(
       {
         pairId: pair.id,
@@ -462,13 +507,13 @@ export class PositionModule implements IModule {
       tx
     )
     const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
-
+    
     for (const index in res.results ?? []) {
       const result = res.results![index]
-      const resXValue = new Uint8Array(result.returnValues?.[4]?.[0] ?? [])
+      const resXValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
       const valueX = bcs.u64().parse(resXValue)
 
-      const resYValue = new Uint8Array(result.returnValues?.[5]?.[0] ?? [])
+      const resYValue = new Uint8Array(result.returnValues?.[1]?.[0] ?? [])
       const valueY = bcs.u64().parse(resYValue)
 
       rewards = [
@@ -520,10 +565,10 @@ export class PositionModule implements IModule {
 
     for (const index in res.results ?? []) {
       const result = res.results![index]
-      const resXValue = new Uint8Array(result.returnValues?.[4]?.[0] ?? [])
+      const resXValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
       const valueX = bcs.u64().parse(resXValue)
 
-      const resYValue = new Uint8Array(result.returnValues?.[5]?.[0] ?? [])
+      const resYValue = new Uint8Array(result.returnValues?.[1]?.[0] ?? [])
       const valueY = bcs.u64().parse(resYValue)
 
       rewards = [

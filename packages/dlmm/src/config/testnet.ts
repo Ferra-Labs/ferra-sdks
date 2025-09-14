@@ -3,9 +3,9 @@ import { checkInvalidSuiAddress } from '../utils'
 
 const SDKConfig = {
   dlmmConfig: {
-    global_config: '0x5c2fffd7fc54e28e2a36e93cddc4d59c24b3f1cccad703b3242d2d146715c860',
-    pairs_id: '0x17b0cb829738205e25250ce1e7eb12cce30d02d5404b0e614763a4811ae81c60',
-    reward_vault: '0x7d6302958ab12833748ffeb71f6bd0f4248aafde948fc4803a0633857c3163f2',
+    global_config: '0xd9e379604b7f46a84bd6bcf39fb3819851a864fd6a6ad0474c854c451adfaebb',
+    pairs_id: '0xabf2db0d8af1777c6081a0614c68db016b70175b57d09c549319f5723b667f05',
+    reward_vault: '0xea185c8fed41052dbb2e48caf7edd7ea924221552eb0a15e041ad1027abc948d',
   }
 }
 
@@ -17,8 +17,8 @@ export const dlmmTestnet: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   dlmm_pool: {
-    package_id: '0xe8cfaef4533ec6272122858c66d7c796b0da5ea596eeb10b30cbd9b30e6b8305',
-    published_at: '0xe8cfaef4533ec6272122858c66d7c796b0da5ea596eeb10b30cbd9b30e6b8305',
+    package_id: '0xe6cb7c7a4ed30221e1d264d6dd5f47f3be7238d07fa4be02cc641ceda99d8022',
+    published_at: '0xba2df63eab02ea89b1359347f6ba098ee3924bd781dd270774ee04a9212365af',
     config: SDKConfig.dlmmConfig,
   },
   integrate: {
