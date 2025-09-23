@@ -114,8 +114,7 @@ export class TransactionUtil {
         tx.object(global_config),
         tx.object(pairs_id),
         tx.pure.u32(activeId),
-        tx.pure.u16(binStep),
-        tx.pure.u32(params.initialBins ?? 0),
+        tx.pure.u16(binStep)
       ],
     })
 
