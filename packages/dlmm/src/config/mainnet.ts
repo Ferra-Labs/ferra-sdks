@@ -3,9 +3,9 @@ import { checkInvalidSuiAddress } from '../utils'
 
 const SDKConfig = {
   dlmmConfig: {
-    global_config: '0xd07fcd72e29e799468d6ea4498980df6f1e6bfba2a1640f81ae2a4d90323e9b7',
-    pairs_id: '0x926a08958712d4728d1b7697dc52c219e4c23499cbed769de382a1a335e4e17a',
-    reward_vault: '0x54e4ff0ada41a1b3a1f685dbd03f25b99e6dae1b76c35a0e3d60b83749bdb0ca',
+    global_config: '0xab4744f35407db7b75b97d75396e655f48e6164a18fc6b4de5bf11de38146efc',
+    pairs_id: '0x52150371309fb9eacff75029179c1fc945a29e7ac01ec6475ba858bd9a343abe',
+    reward_vault: '0xfd6582cc1d9d49272bf1293a36139199e83d5ffea9a15eef64af01752b5254e9',
   }
 }
 
@@ -16,15 +16,15 @@ export const dlmmMainnet: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   dlmm_pool: {
-    package_id: '0x69b4880637bd4483f983209d58643927ee87e07f51c7a1d6a3ac37eff627d4a3',
-    published_at: '0x69b4880637bd4483f983209d58643927ee87e07f51c7a1d6a3ac37eff627d4a3',
+    package_id: '0xff921c4fcf7abd1bff1b2e5fdb1f463e88cb4863a4261948a3cc8bb227ca697e',
+    published_at: '0xff921c4fcf7abd1bff1b2e5fdb1f463e88cb4863a4261948a3cc8bb227ca697e',
     config: SDKConfig.dlmmConfig,
   },
   integrate: {
     package_id: '',
     published_at: '',
   },
-  dlmmApiUrl: "https://api-beta.ferra.xyz/dlmm/pair/"
+  dlmmApiUrl: "https://api.ferra.xyz/dlmm/pair/"
 }
 
 /**

@@ -3,9 +3,9 @@ import { checkInvalidSuiAddress } from '../utils'
 
 const SDKConfig = {
   clmmConfig: {
-    pools_id: '0xcf8cd5934d0ba8ab70a6db533ac4ff20b0ccd55e54b82688811007723cf8e468',
-    global_config_id: '0x32bcdffb86333e3092ff3aa2d97847cde7a36724a026844732ade63a42fc8b45',
-    global_rewarder_vault_id: '0x97e1f1e0931eed67806e598fdf33b699cb988ae04558ff0ae7d74d23cab06d42',
+    pools_id: '0xadae2faa029b3b0be430e3b1b787ac0d528f3b3be9d32c61530fabaa6f171431',
+    global_config_id: '0x2d1269e1ade81a5189b625ee87c9425bc29249d21d273245269eb07e67dc6965',
+    global_rewarder_vault_id: '0xbe8d4702ed1f4bf2ad8101ee68d785538fb6d50e2f187bbafd134d1e2c67aa89'
   }
 }
 
@@ -16,15 +16,15 @@ export const clmmMainnet: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   clmm_pool: {
-    package_id: '0x677a8ee8489097070f95ffdac5c385ee1ee84e1056ea3d29ede5e09f3e612420',
-    published_at: '0x677a8ee8489097070f95ffdac5c385ee1ee84e1056ea3d29ede5e09f3e612420',
+    package_id: '0x8e1144ad9fbc388c61ac30d74ebef4eb741d213e3a086da48124256290233723',
+    published_at: '0x8e1144ad9fbc388c61ac30d74ebef4eb741d213e3a086da48124256290233723',
     config: SDKConfig.clmmConfig,
   },
   integrate: {
-    package_id: '0x97084e44e7778be7414a8fa00623a6274f0161ab0735390a6f2a569e1bdaef7f',
-    published_at: '0x97084e44e7778be7414a8fa00623a6274f0161ab0735390a6f2a569e1bdaef7f',
+    package_id: '0x46f0964200ea12c1bd3f7280cb49f55c11e4c0df8ae2a40f71253a3a19859a17',
+    published_at: '0x46f0964200ea12c1bd3f7280cb49f55c11e4c0df8ae2a40f71253a3a19859a17',
   },
-  swapCountUrl: 'https://api-beta.ferra.xyz/clmm/swap/pools'
+  swapCountUrl: 'https://api.ferra.xyz/clmm/swap/pools'
 }
 
 /**

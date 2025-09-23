@@ -6,8 +6,7 @@ const SDKConfig = {
   clmmConfig: {
     pools_id: '0xadae2faa029b3b0be430e3b1b787ac0d528f3b3be9d32c61530fabaa6f171431',
     global_config_id: '0x2d1269e1ade81a5189b625ee87c9425bc29249d21d273245269eb07e67dc6965',
-    global_rewarder_vault_id: '0xbe8d4702ed1f4bf2ad8101ee68d785538fb6d50e2f187bbafd134d1e2c67aa89',
-    admin_cap_id: '',
+    global_rewarder_vault_id: '0xbe8d4702ed1f4bf2ad8101ee68d785538fb6d50e2f187bbafd134d1e2c67aa89'
   }
 }
 //https://suivision.xyz/txblock/B4WbFgHnh8j5VYJstjQog87hsK5ya7sbXmjsBSF87ogj?tab=Changes
