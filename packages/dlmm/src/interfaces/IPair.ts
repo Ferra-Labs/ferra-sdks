@@ -46,8 +46,6 @@ export interface LbPairBinData {
   reserve_y: bigint
   price: bigint
   total_supply: bigint
-  fee_x: bigint
-  fee_y: bigint
   fee_growth_x: bigint
   fee_growth_y: bigint
 }

@@ -926,8 +926,6 @@ export function formatBins(
         reserve_y: BigInt(b.reserve_y),
         price: BigInt(b.price),
         total_supply: BigInt(b.total_supply),
-        fee_x: BigInt(b.fee_x),
-        fee_y: BigInt(b.fee_y),
         fee_growth_x: BigInt(b.fee_growth_x),
         fee_growth_y: BigInt(b.fee_growth_y),
       }) as LbPairBinData

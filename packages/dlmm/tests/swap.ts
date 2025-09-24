@@ -35,22 +35,18 @@ export async function main() {
   }
 
   const wallet = keypair.getPublicKey().toSuiAddress()
-  const sdk = initFerraSDK({ network: 'beta', wallet })
+  const sdk = initFerraSDK({ network: 'mainnet', wallet })
 
   const TEST = true
 
-  const pair = await sdk.Pair.getPair('0x02fcbaf9c8c4844e4dba54a9328bc51ffd20c47b3ce36959f185456666fb8a3f')
+  const pair = await sdk.Pair.getPair('0xa713e60068016fad9d3970cd6a8876b33edf6796b8afb0561ae1f909d52e7423')
   if (!pair) {
     throw new Error('Pair not found')
   }
 
-  const binsData = await sdk.Pair.getPairBinsData(pair.id)
+  const binsData = formatBins([]);
 
-  console.log('swapOut', binsData)
-  console.log('swapOut', binsData.reduce((p, v) => ((p += BigInt(v.reserve_x) + BigInt(v.fee_x)), p), 0n))
-  console.log('swapOut', binsData.reduce((p, v) => ((p += BigInt(v.reserve_y) + BigInt(v.fee_y)), p), 0n))
-
-  const AMOUNT = 10_000_000n;
+  const AMOUNT = 1_00_00_000n;
   const XTOY = false
 
   const swapOut = sdk.Swap.calculateRates(pair, {
