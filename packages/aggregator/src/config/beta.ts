@@ -21,7 +21,7 @@ export const aggBeta: SdkOptions = {
     published_at: '0xaf5bf815babb462f6bdfd006edb00f3f53d382cf72901e8b11c1cae426c88cdd',
     config: SDKConfig.aggConfig,
   },
-  quoterUrl: 'https://agg-beta.ferra.xyz/agg/quote',
+  quoterUrl: 'https://agg-beta.ferra.ag/agg/quote',
 }
 
 /**

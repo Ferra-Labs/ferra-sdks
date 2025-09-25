@@ -4,24 +4,24 @@ A monorepo containing SDKs for CLMM (Concentrated Liquidity Market Maker), DLMM 
 
 ## Packages
 
-- [`@ferra-xyz/clmm`](./packages/clmm) - Concentrated Liquidity Market Maker SDK
-- [`@ferra-xyz/dlmm`](./packages/dlmm) - Discrete Liquidity Market Maker SDK
-- [`@ferra-xyz/aggregator`](./packages/aggregator) - DEX Aggregator SDK
+- [`@ferra-labs/clmm`](./packages/clmm) - Concentrated Liquidity Market Maker SDK
+- [`@ferra-labs/dlmm`](./packages/dlmm) - Discrete Liquidity Market Maker SDK
+- [`@ferra-labs/aggregator`](./packages/aggregator) - DEX Aggregator SDK
 
 ### Package Installation
 
 ```bash
 # Install CLMM only
-npm install @ferra-xyz/clmm
+npm install @ferra-labs/clmm
 
 # Install DLMM only
-npm install @ferra-xyz/dlmm
+npm install @ferra-labs/dlmm
 
 # Install Aggregator only
-npm install @ferra-xyz/aggregator
+npm install @ferra-labs/aggregator
 
 # Install all packages
-npm install @ferra-xyz/clmm @ferra-xyz/dlmm @ferra-xyz/aggregator
+npm install @ferra-labs/clmm @ferra-labs/dlmm @ferra-labs/aggregator
 ```
 
 ## Quick Start
@@ -66,32 +66,32 @@ pnpm prepare
 
 ### Package-Specific Commands
 ```# Build specific package
-pnpm --filter @ferra.xyz/clmm build
+pnpm --filter @ferra-labs/clmm build
 
 # Run tests for specific package
-pnpm --filter @ferra.xyz/dlmm test
+pnpm --filter @ferra-labs/dlmm test
 
 # Start development mode for specific package
-pnpm --filter @ferra.xyz/clmm dev
+pnpm --filter @ferra-labs/clmm dev
 ```
 
 ### Package Installation (After Publishing)
 
 ```bash
 # Install CLMM only
-npm install @ferra-xyz/clmm
+npm install @ferra-labs/clmm
 
 # Install DLMM only
-npm install @ferra-xyz/dlmm
+npm install @ferra-labs/dlmm
 
 # Install Aggregator only
-npm install @ferra-xyz/aggregator
+npm install @ferra-labs/aggregator
 
 # Install specific combination
-npm install @ferra-xyz/clmm @ferra-xyz/aggregator
+npm install @ferra-labs/clmm @ferra-labs/aggregator
 
 # Install all packages
-npm install @ferra-xyz/clmm @ferra-xyz/dlmm @ferra-xyz/aggregator
+npm install @ferra-labs/clmm @ferra-labs/dlmm @ferra-labs/aggregator
 ```
 
 ### Pre-release Testing
@@ -103,9 +103,9 @@ pnpm version-packages
 pnpm release
 
 # Install beta versions
-npm install @ferra-xyz/clmm@beta
-npm install @ferra-xyz/dlmm@beta
-npm install @ferra-xyz/aggregator@beta
+npm install @ferra-labs/clmm@beta
+npm install @ferra-labs/dlmm@beta
+npm install @ferra-labs/aggregator@beta
 
 # Exit pre-release mode
 pnpm changeset pre exit

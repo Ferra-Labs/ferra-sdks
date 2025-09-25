@@ -24,7 +24,7 @@ export const clmmMainnet: SdkOptions = {
     package_id: '0x46f0964200ea12c1bd3f7280cb49f55c11e4c0df8ae2a40f71253a3a19859a17',
     published_at: '0x46f0964200ea12c1bd3f7280cb49f55c11e4c0df8ae2a40f71253a3a19859a17',
   },
-  swapCountUrl: 'https://api.ferra.xyz/clmm/swap/pools'
+  swapCountUrl: 'https://api.ferra.ag/clmm/swap/pools'
 }
 
 /**

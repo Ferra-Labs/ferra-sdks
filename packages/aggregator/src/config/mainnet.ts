@@ -22,7 +22,7 @@ export const aggMainnet: SdkOptions = {
     published_at: '0x74342a1f88758a3b61dfd2616312a53c3ccec48e465482ceae37a3516303dc46',
     config: SDKConfig.aggConfig,
   },
-  quoterUrl: 'https://api.ferra.xyz/agg/quote',
+  quoterUrl: 'https://api.ferra.ag/agg/quote',
 }
 
 /**

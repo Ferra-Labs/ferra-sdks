@@ -4,24 +4,24 @@ A monorepo containing SDKs for CLMM (Concentrated Liquidity Market Maker), DLMM 
 
 ## Packages
 
-- [`@ferra-xyz/clmm`](./packages/clmm) - Concentrated Liquidity Market Maker SDK
-- [`@ferra-xyz/dlmm`](./packages/dlmm) - Discrete Liquidity Market Maker SDK
-- [`@ferra-xyz/aggregator`](./packages/aggregator) - DEX Aggregator SDK
+- [`@ferra-labs/clmm`](./packages/clmm) - Concentrated Liquidity Market Maker SDK
+- [`@ferra-labs/dlmm`](./packages/dlmm) - Discrete Liquidity Market Maker SDK
+- [`@ferra-labs/aggregator`](./packages/aggregator) - DEX Aggregator SDK
 
 ### Package Installation
 
 ```bash
 # Install CLMM only
-npm install @ferra-xyz/clmm
+npm install @ferra-labs/clmm
 
 # Install DLMM only
-npm install @ferra-xyz/dlmm
+npm install @ferra-labs/dlmm
 
 # Install Aggregator only
-npm install @ferra-xyz/aggregator
+npm install @ferra-labs/aggregator
 
 # Install all packages
-npm install @ferra-xyz/clmm @ferra-xyz/dlmm @ferra-xyz/aggregator
+npm install @ferra-labs/clmm @ferra-labs/dlmm @ferra-labs/aggregator
 ```
 
 ## Quick Start
@@ -67,19 +67,19 @@ pnpm prepare
 ### Package-Specific Commands
 ```bash
 # Build specific package
-pnpm --filter @ferra-xyz/clmm build
-pnpm --filter @ferra-xyz/dlmm build
-pnpm --filter @ferra-xyz/aggregator build
+pnpm --filter @ferra-labs/clmm build
+pnpm --filter @ferra-labs/dlmm build
+pnpm --filter @ferra-labs/aggregator build
 
 # Run tests for specific package
-pnpm --filter @ferra-xyz/clmm test
-pnpm --filter @ferra-xyz/dlmm test
-pnpm --filter @ferra-xyz/aggregator test
+pnpm --filter @ferra-labs/clmm test
+pnpm --filter @ferra-labs/dlmm test
+pnpm --filter @ferra-labs/aggregator test
 
 # Start development mode for specific package
-pnpm --filter @ferra-xyz/clmm dev
-pnpm --filter @ferra-xyz/dlmm dev
-pnpm --filter @ferra-xyz/aggregator dev
+pnpm --filter @ferra-labs/clmm dev
+pnpm --filter @ferra-labs/dlmm dev
+pnpm --filter @ferra-labs/aggregator dev
 ```
 
 ### Publishing
@@ -177,7 +177,7 @@ pnpm release
    pnpm test
    ```
 
-This setup provides a production-ready monorepo that allows users to install `@ferra-xyz/clmm`, `@ferra-xyz/dlmm`, and `@ferra-xyz/aggregator` independently!
+This setup provides a production-ready monorepo that allows users to install `@ferra-labs/clmm`, `@ferra-labs/dlmm`, and `@ferra-labs/aggregator` independently!
 
 ---
 
@@ -204,19 +204,19 @@ pnpm release
 
 ```bash
 # Install CLMM only
-npm install @ferra-xyz/clmm
+npm install @ferra-labs/clmm
 
 # Install DLMM only
-npm install @ferra-xyz/dlmm
+npm install @ferra-labs/dlmm
 
 # Install Aggregator only
-npm install @ferra-xyz/aggregator
+npm install @ferra-labs/aggregator
 
 # Install specific combination
-npm install @ferra-xyz/clmm @ferra-xyz/aggregator
+npm install @ferra-labs/clmm @ferra-labs/aggregator
 
 # Install all packages
-npm install @ferra-xyz/clmm @ferra-xyz/dlmm @ferra-xyz/aggregator
+npm install @ferra-labs/clmm @ferra-labs/dlmm @ferra-labs/aggregator
 ```
 
 ### Pre-release Testing
@@ -228,9 +228,9 @@ pnpm version-packages
 pnpm release
 
 # Install beta versions
-npm install @ferra-xyz/clmm@beta
-npm install @ferra-xyz/dlmm@beta
-npm install @ferra-xyz/aggregator@beta
+npm install @ferra-labs/clmm@beta
+npm install @ferra-labs/dlmm@beta
+npm install @ferra-labs/aggregator@beta
 
 # Exit pre-release mode
 pnpm changeset pre exit

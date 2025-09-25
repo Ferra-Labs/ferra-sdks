@@ -24,7 +24,7 @@ export const dlmmMainnet: SdkOptions = {
     package_id: '',
     published_at: '',
   },
-  dlmmApiUrl: "https://api.ferra.xyz/dlmm/pair/"
+  dlmmApiUrl: "https://api.ferra.ag/dlmm/pair/"
 }
 
 /**

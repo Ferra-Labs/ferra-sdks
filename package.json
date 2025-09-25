@@ -1,5 +1,5 @@
 {
-  "name": "@ferra-xyz/sdks",
+  "name": "@ferra-labs/sdks",
   "version": "0.0.8-beta.8",
   "description": "DEX SDKs for CLMM and DLMM protocols",
   "private": true,

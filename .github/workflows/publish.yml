@@ -7,7 +7,7 @@ on:
     branches: [ "mainnet", "dev", "beta" ]
 
 env:
-  SCOPE: ferra-xyz
+  SCOPE: ferra-labs
 
 jobs:
   build-and-publish:
@@ -112,7 +112,7 @@ jobs:
       #       echo "### ⚠️ Some packages failed to publish. Check the logs for details." >> $GITHUB_STEP_SUMMARY
       #     fi
 
-      
+
       # Alternative Option 2: Publish to npmjs.org (uncomment if needed)
       - name: Configure npm for npmjs
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
