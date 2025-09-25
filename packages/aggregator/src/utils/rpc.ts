@@ -159,41 +159,73 @@ export class RpcModule extends SuiClient {
   async batchGetObjects(ids: SuiObjectIdType[], options?: SuiObjectDataOptions, limit = 50): Promise<SuiObjectResponse[]> {
     let objectDataResponses: SuiObjectResponse[] = []
 
-    try {
-      for (let i = 0; i < Math.ceil(ids.length / limit); i++) {
+    for (let i = 0; i < Math.ceil(ids.length / limit); i++) {
+      try {
         const res = await this.multiGetObjects({
           ids: ids.slice(i * limit, limit * (i + 1)),
           options,
         })
         objectDataResponses = [...objectDataResponses, ...res]
+      } catch (error) {
+        console.error(`Batch ${i} failed:`, error)
+        throw error
       }
-    } catch (error) {
-      console.log(error)
     }
 
     return objectDataResponses
   }
 
   /**
-   * Calculates the gas cost of a transaction block.
-   * @param {Transaction} tx - The transaction block to calculate gas for.
-   * @returns {Promise<number>} - The estimated gas cost of the transaction block.
-   * @throws {Error} - Throws an error if the sender is empty.
-   */
+ * Calculates the gas cost of a transaction block.
+ * @param {Transaction} tx - The transaction block to calculate gas for.
+ * @returns {Promise<number>} - The estimated gas cost of the transaction block.
+ * @throws {Error} - Throws an error if the sender is empty or devInspect fails.
+ */
   async calculationTxGas(tx: Transaction): Promise<number> {
     const { sender } = tx.blockData
 
     if (sender === undefined) {
-      throw Error('sdk sender is empty')
+      throw Error('Transaction sender is required')
     }
 
     const devResult = await this.devInspectTransactionBlock({
       transactionBlock: tx,
       sender,
     })
+
+    // CHECK FOR ERRORS FIRST
+    if (devResult.error) {
+      console.error('DevInspect failed:', devResult.error)
+      throw new Error(`Gas estimation failed: ${devResult.error}`)
+    }
+
+    // CHECK EFFECTS EXISTS
+    if (!devResult.effects) {
+      throw new Error('Gas estimation failed: No effects returned from devInspect')
+    }
+
+    // CHECK GASUSED EXISTS
+    if (!devResult.effects.gasUsed) {
+      throw new Error('Gas estimation failed: No gas information in effects')
+    }
+
     const { gasUsed } = devResult.effects
 
-    const estimateGas = Number(gasUsed.computationCost) + Number(gasUsed.storageCost) - Number(gasUsed.storageRebate)
+    // VALIDATE GAS VALUES
+    if (!gasUsed.computationCost || !gasUsed.storageCost || gasUsed.storageRebate === undefined) {
+      throw new Error('Gas estimation failed: Incomplete gas information')
+    }
+
+    const estimateGas =
+      Number(gasUsed.computationCost) +
+      Number(gasUsed.storageCost) -
+      Number(gasUsed.storageRebate)
+
+    // SANITY CHECK
+    if (estimateGas < 0 || !Number.isFinite(estimateGas)) {
+      throw new Error(`Gas estimation failed: Invalid gas value ${estimateGas}`)
+    }
+
     return estimateGas
   }
 
@@ -206,7 +238,7 @@ export class RpcModule extends SuiClient {
    */
   async sendTransaction(keypair: Ed25519Keypair | Secp256k1Keypair, tx: Transaction): Promise<SuiTransactionBlockResponse | undefined> {
     try {
-      const resultTxn: any = await this.signAndExecuteTransaction({
+      const resultTxn = await this.signAndExecuteTransaction({
         transaction: tx,
         signer: keypair,
         options: {
@@ -216,9 +248,9 @@ export class RpcModule extends SuiClient {
       })
       return resultTxn
     } catch (error) {
-      console.dir(error, { depth: null })
+      console.error('Transaction failed:', error)
+      throw error
     }
-    return undefined
   }
 
   /**
@@ -242,41 +274,9 @@ export class RpcModule extends SuiClient {
         return simulateRes
       }
 
-      // If useDevInspect is false, manually construct the transaction for simulation.
-      // const inputs = tx.inputs.map((input) => {
-      //   const { type, value } = input
-      //   if (type === 'object') {
-      //     return Inputs.SharedObjectRef({
-      //       objectId: value,
-      //       initialSharedVersion: 0,
-      //       mutable: true,
-      //     })
-      //   }
-      //   return value
-      // })
-
-      // const kind = {
-      //   ProgrammableTransaction: {
-      //     inputs,
-      //     transactions: tx,
-      //   },
-      // }
-      // // Serialize the transaction using BCS.
-      // const serialize = bcs.TransactionKind.serialize(kind, {
-      //   maxSize: 131072,
-      // }).toBytes()
-
-      // const devInspectTxBytes = toB64(serialize)
-      // // Send the request to DevInspect.
-      // const res = await this.transport.request<DevInspectResults>({
-      //   method: 'sui_devInspectTransactionBlock',
-      //   params: [simulationAccount, devInspectTxBytes, null, null],
-      // })
-      // return res
     } catch (error) {
-      console.log('devInspectTransactionBlock error', error)
+      console.error('sendSimulationTransaction failed:', error)
+      throw error
     }
-
-    return undefined
   }
 }

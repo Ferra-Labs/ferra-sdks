@@ -491,78 +491,6 @@ export class PairModule implements IModule {
   }
 
   /**
-   * Add liquidity to a pair and create a new position (open bucket)
-   *
-   * @param pair - The LBPair to add liquidity to
-   * @param params - Liquidity parameters
-   *   @param params.amountX - Amount of token X to add
-   *   @param params.amountY - Amount of token Y to add
-   *   @param params.ids - Array of relative bin IDs from active bin
-   *   @param params.distributionX - Distribution percentages for token X across bins
-   *   @param params.distributionY - Distribution percentages for token Y across bins
-   * @param tx - Optional existing transaction to add operations to
-   * @returns Transaction object with liquidity addition and position creation
-   *
-   * @example
-   * ```typescript
-   * const tx = await router.addOpenBucketLiquidity(pair, {
-   *   amountX: 1000000000n, // 1 token X
-   *   amountY: 2000000000n, // 2 token Y
-   *   ids: [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5],
-   *   distributionX: [0, 0, 0, 0, 0, 50, 50, 0, 0, 0, 0],
-   *   distributionY: [0, 0, 0, 0, 0, 50, 50, 0, 0, 0, 0]
-   * });
-   * ```
-   */
-  async openPositionAndAddLiquidityV2(
-    pair: LBPair,
-    params: Omit<AddLiquidityParams, 'positionId'>,
-    tx?: Transaction
-  ): Promise<Transaction> {
-    const sender = this.sdk.senderAddress
-
-    // Create new transaction if not provided
-    tx ??= new Transaction()
-    tx.setSenderIfNotSet(sender)
-
-    // Build coin objects with specified amounts
-    const amountX = coinWithBalance({
-      type: pair.tokenXType,
-      balance: params.amountX,
-    })
-
-    const amountY = coinWithBalance({
-      type: pair.tokenYType,
-      balance: params.amountY,
-    })
-
-    // Create new LB position NFT
-    const [_, position] = TransactionUtil.createLbPosition(pair, this.sdk.sdkOptions, tx)
-
-    // Add liquidity to the newly created position
-    if (params.distributionX.length > 0) {
-      tx = TransactionUtil.addLiquidityV2(
-        pair,
-        {
-          ids: params.ids,
-          distributionX: params.distributionX,
-          distributionY: params.distributionY,
-          amountX,
-          amountY,
-          position,
-        },
-        this.sdk.sdkOptions,
-        tx
-      )
-    }
-
-    // Transfer the position NFT to sender
-    tx.transferObjects([position], sender)
-
-    return tx
-  }
-
-  /**
    * Create a new empty position NFT for a pair without adding liquidity
    * @param pair - The LBPair to create position for
    * @param tx - Optional existing transaction to add operations to
@@ -672,61 +600,6 @@ export class PairModule implements IModule {
   }
 
   /**
-   * Add liquidity to an existing position
-   * @param pair - The LBPair to add liquidity to
-   * @param params - Liquidity parameters
-   *   @param params.positionId - ID of existing position to add liquidity to
-   *   @param params.amountX - Amount of token X to add
-   *   @param params.amountY - Amount of token Y to add
-   *   @param params.ids - Array of relative bin IDs from active bin
-   *   @param params.distributionX - Distribution percentages for token X across bins
-   *   @param params.distributionY - Distribution percentages for token Y across bins
-   * @param tx - Optional existing transaction to add operations to
-   * @returns Transaction object with liquidity addition
-   *
-   * @example
-   * ```typescript
-   * const tx = await router.addLiquidity(pair, {
-   *   positionId: "0x123...",
-   *   amountX: 1000000000n,
-   *   amountY: 2000000000n,
-   *   ids: [-2, -1, 0, 1, 2],
-   *   distributionX: [10, 20, 40, 20, 10],
-   *   distributionY: [10, 20, 40, 20, 10]
-   * });
-   * ```
-   */
-  async addLiquidityV2(pair: LBPair, params: AddLiquidityParams, tx?: Transaction): Promise<Transaction> {
-    const sender = this.sdk.senderAddress
-    // Create new transaction if not provided
-    tx ??= new Transaction()
-    tx.setSenderIfNotSet(sender)
-
-    // Build coin objects with specified amounts
-    const amountX = coinWithBalance({ balance: params.amountX, type: CoinAssist.isSuiCoin(pair.tokenXType) ? undefined : pair.tokenXType })
-    const amountY = coinWithBalance({ balance: params.amountY, type: CoinAssist.isSuiCoin(pair.tokenYType) ? undefined : pair.tokenYType })
-
-    // Add liquidity to existing position
-    TransactionUtil.addLiquidityV2(
-      pair,
-      {
-        ids: params.ids,
-        distributionX: params.distributionX,
-        distributionY: params.distributionY,
-        amountX,
-        amountY,
-        minAmountX: params.minAmountX,
-        minAmountY: params.minAmountY,
-        position: 'position' in params ? params.position : tx.object(params.positionId),
-      },
-      this.sdk.sdkOptions,
-      tx
-    )
-
-    return tx
-  }
-
-  /**
    * Remove liquidity from a position
    * @param pair - The LBPair to remove liquidity from
    * @param params - Remove liquidity parameters
@@ -773,60 +646,6 @@ export class PairModule implements IModule {
 
     // Remove liquidity and get output coins
     const [_, coinX, coinY] = TransactionUtil.removeLiquidity(pair, params, this.sdk.sdkOptions, tx)
-
-    // Transfer received coins to sender
-    tx.transferObjects([coinX, coinY], sender)
-
-    return tx
-  }
-
-  /**
-   * Remove liquidity from a position
-   * @param pair - The LBPair to remove liquidity from
-   * @param params - Remove liquidity parameters
-   *   @param params.positionId - ID of position to remove liquidity from
-   *   @param params.binIds - Array of bin IDs to remove liquidity from
-   *   @param params.binAmounts - Array of amounts to remove from each bin
-   *   @param params.minAmountXOut - Minimum amount of token X to receive (slippage protection)
-   *   @param params.minAmountYOut - Minimum amount of token Y to receive (slippage protection)
-   * @param tx - Optional existing transaction to add operations to
-   * @returns Transaction object with liquidity removal
-   * @throws DlmmPairsError if sender address is invalid
-   * @throws Error if bin arrays are empty or mismatched
-   *
-   * @example
-   * ```typescript
-   * const tx = await router.removeLiquidity(pair, {
-   *   positionId: "0x123...",
-   *   binIds: [8388606, 8388607, 8388608],
-   *   binAmounts: [100000n, 200000n, 150000n],
-   *   minAmountXOut: 900000n,
-   *   minAmountYOut: 1800000n
-   * });
-   * ```
-   */
-  async removeLiquidityV2(pair: LBPair, params: RemoveLiquidityParams, tx?: Transaction): Promise<Transaction> {
-    const sender = this.sdk.senderAddress
-
-    // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
-      throw new DlmmPairsError(
-        'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
-        UtilsErrorCode.InvalidSendAddress
-      )
-    }
-
-    // Validate bin IDs array is not empty
-    if (!params.binIds.length) {
-      throw new Error('List bin id cannot empty')
-    }
-
-    // Create new transaction if not provided
-    tx ??= new Transaction()
-    tx.setSenderIfNotSet(sender)
-
-    // Remove liquidity and get output coins
-    const [_, coinX, coinY] = TransactionUtil.removeLiquidityV2(pair, params, this.sdk.sdkOptions, tx)
 
     // Transfer received coins to sender
     tx.transferObjects([coinX, coinY], sender)

@@ -1,5 +1,6 @@
 import { Transaction } from '@mysten/sui/transactions'
 import { ClmmpoolsError, UtilsErrorCode } from '../errors/errors'
+import { isValidSuiAddress } from '@mysten/sui/utils'
 
 /**
  * Check if the address is a valid sui address.
@@ -7,11 +8,9 @@ import { ClmmpoolsError, UtilsErrorCode } from '../errors/errors'
  * @returns
  */
 export function checkInvalidSuiAddress(address: string): boolean {
-  if (!address.startsWith('0x') || address.length !== 66) {
-    return false
-  }
-  return true
+  return !!address && isValidSuiAddress(address)
 }
+
 export class TxBlock {
   public txBlock: Transaction
 

@@ -9,7 +9,7 @@ import { IModule } from '../interfaces/IModule'
 import { U64_MAX, ZERO } from '../math'
 import { ClmmpoolsError, ConfigErrorCode, RouterErrorCode } from '../errors/errors'
 import Decimal from '../utils/decimal'
-import { normalizeStructTag } from '@mysten/sui/utils'
+import { isValidSuiAddress, normalizeStructTag } from '@mysten/sui/utils'
 
 // Represents a coin node in the coin mapping system
 export interface CoinNode {
@@ -131,6 +131,26 @@ export type BestInternalRouterResult = {
 type PoolWithTvl = {
   poolAddress: string
   tvl: number
+}
+
+interface CoinInfo {
+  address: string
+  decimals: number
+}
+
+interface PoolInfo {
+  address: string
+  is_closed: boolean
+  fee: number
+
+  // Token information
+  coin_a: CoinInfo
+  coin_b: CoinInfo
+}
+
+interface GraphApiResponse {
+  code: number
+  pools: PoolInfo[]
 }
 
 /**
@@ -374,7 +394,6 @@ export class RouterModule implements IModule {
     partnerObjectId: string,
     multiPoolParams?: PreSwapWithMultiPoolParams
   ): Promise<BestInternalRouterResult | undefined> {
-
     if (!this.isGraphLoaded) {
       await this.loadGraphData()
     }
@@ -667,12 +686,20 @@ export class RouterModule implements IModule {
     const coinRegistry = new Map()
     const poolRegistry = new Map()
 
-    const apiResponse: any = await fetch(this.sdk.sdkOptions.swapCountUrl!, { method: 'GET' })
-    const poolsData = await apiResponse.json()
+    const apiResponse = await fetch(this.sdk.sdkOptions.swapCountUrl!, { method: 'GET' })
+    const poolsData = (await apiResponse.json()) as GraphApiResponse
 
     if (poolsData.code === 200) {
       for (const poolInfo of poolsData.pools) {
-        if (poolInfo.is_closed) {
+        if (
+          poolInfo.is_closed ||
+          !(
+            isValidSuiAddress(poolInfo.address) &&
+            isValidSuiAddress(poolInfo.coin_a.address) &&
+            isValidSuiAddress(poolInfo.coin_b.address) &&
+            poolInfo.fee
+          )
+        ) {
           continue
         }
 

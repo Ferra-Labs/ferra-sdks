@@ -203,7 +203,7 @@ export class CoinAssist {
   }
 
   static sortByBalanceDes(coins: CoinAsset[]): CoinAsset[] {
-    return coins.sort((a, b) => (a.balance > b.balance ? -1 : a.balance < b.balance ? 0 : 1))
+    return coins.sort((a, b) => (a.balance > b.balance ? -1 : a.balance < b.balance ? 1 : 0))
   }
 
   /**

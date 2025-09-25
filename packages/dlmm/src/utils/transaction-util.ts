@@ -206,61 +206,6 @@ export class TransactionUtil {
   }
 
   /**
-   * Add liquidity to a position
-   * @param pair - The LBPair to add liquidity to
-   * @param params - Liquidity addition parameters
-   *   @param params.ids - Array of bin IDs to add liquidity to
-   *   @param params.distributionX - Distribution of token X across bins
-   *   @param params.distributionY - Distribution of token Y across bins
-   *   @param params.amountX - Token X amount to add
-   *   @param params.amountY - Token Y amount to add
-   *   @param params.position - Position object to add liquidity to
-   * @param sdkOptions - SDK configuration options
-   * @param tx - Optional existing transaction to add to
-   * @returns Transaction object with liquidity addition
-   */
-  public static addLiquidityV2(
-    pair: LBPair,
-    { ids, distributionX, distributionY, amountX, amountY, position, minAmountX, minAmountY }: AddLiquidityTxParams,
-    sdkOptions: SdkOptions,
-    tx?: Transaction
-  ) {
-    const {
-      dlmm_pool: { published_at, config },
-    } = sdkOptions
-
-    const { global_config } = config ?? {}
-
-    if (!global_config) {
-      throw new DlmmPairsError('Global config is not set', ConfigErrorCode.InvalidConfig)
-    }
-
-    tx ??= new Transaction()
-
-    // Call add_liquidity function with distributions
-    tx.moveCall({
-      target: `${published_at}::lb_pair::add_liquidity2`,
-      arguments: [
-        tx.object(global_config),
-        tx.object(pair.id),
-        position,
-        tx.pure.u64(ids.length),
-        tx.pure.vector('u128', encodeU32ToU128(ids)),
-        tx.pure.vector('u256', encodeU64ToU256(distributionX)),
-        tx.pure.vector('u256', encodeU64ToU256(distributionY)),
-        amountX,
-        amountY,
-        tx.pure.u64(minAmountX ?? 0),
-        tx.pure.u64(minAmountY ?? 0),
-        tx.object(CLOCK_ADDRESS),
-      ],
-      typeArguments: [pair.tokenXType, pair.tokenYType],
-    })
-
-    return tx
-  }
-
-  /**
    * Remove liquidity from a position
    * @param pair - The LBPair to remove liquidity from
    * @param params - Liquidity removal parameters
@@ -292,49 +237,6 @@ export class TransactionUtil {
         tx.object(pair.id),
         tx.object(positionId),
         tx.pure.vector('u32', binIds),
-        tx.pure.u64(0),
-        tx.pure.u64(0),
-        tx.object(CLOCK_ADDRESS),
-      ],
-      typeArguments: [pair.tokenXType, pair.tokenYType],
-    })
-
-    return [tx, coinA, coinB] as const
-  }
-
-  /**
-   * Remove liquidity from a position
-   * @param pair - The LBPair to remove liquidity from
-   * @param params - Liquidity removal parameters
-   *   @param params.positionId - ID of the position to remove from
-   *   @param params.binIds - Array of bin IDs to remove liquidity from
-   *   @param params.binAmounts - Array of amounts to remove from each bin
-   * @param sdkOptions - SDK configuration options
-   * @param tx - Optional existing transaction to add to
-   * @returns Tuple of [Transaction, coinA output, coinB output]
-   */
-  public static removeLiquidityV2(pair: LBPair, { binIds, positionId }: RemoveLiquidityParams, sdkOptions: SdkOptions, tx?: Transaction) {
-    const {
-      dlmm_pool: { published_at, config },
-    } = sdkOptions
-
-    const { global_config } = config ?? {}
-
-    if (!global_config) {
-      throw new DlmmPairsError('Global config is not set', ConfigErrorCode.InvalidConfig)
-    }
-
-    tx ??= new Transaction()
-
-    // Call remove_liquidity and get output coins
-    const [coinA, coinB] = tx.moveCall({
-      target: `${published_at}::lb_pair::remove_liquidity2`,
-      arguments: [
-        tx.object(global_config),
-        tx.object(pair.id),
-        tx.object(positionId),
-        tx.pure.u64(binIds.length),
-        tx.pure.vector('u128', encodeU32ToU128(binIds)),
         tx.pure.u64(0),
         tx.pure.u64(0),
         tx.object(CLOCK_ADDRESS),
@@ -590,67 +492,6 @@ export class TransactionUtil {
   }
 
   /**
-   * Collect accumulated rewards from a position
-   * @param params - Reward collection parameters
-   *   @param params.pairId - ID of the pair containing the position
-   *   @param params.positionId - ID of the position to collect rewards from
-   *   @param params.rewardCoin - Type of reward coin to collect
-   *   @param params.typeX - Type of token X in the pair
-   *   @param params.typeY - Type of token Y in the pair
-   * @param sdkOptions - SDK configuration options
-   * @param tx - Optional existing transaction to add to
-   * @returns Tuple of [Transaction, reward coin object]
-   * @throws DlmmPairsError if global config or reward vault is not set
-   *
-   * @example
-   * ```typescript
-   * const [tx, rewardCoin] = TransactionUtil.collectPositionRewards({
-   *   pairId: "0x123...",
-   *   positionId: "0x456...",
-   *   rewardCoin: "0x789::token::TOKEN",
-   *   typeX: "0x2::sui::SUI",
-   *   typeY: "0xabc::usdc::USDC"
-   * }, sdkOptions);
-   * ```
-   */
-  static collectPositionRewardsV2(
-    { pairId, positionId, rewardCoin, typeX, typeY, binIds }: CollectPositionRewardsParams,
-    sdkOptions: SdkOptions,
-    tx?: Transaction
-  ) {
-    const {
-      dlmm_pool: { published_at, config },
-    } = sdkOptions
-
-    const { global_config, reward_vault } = config ?? {}
-
-    if (!global_config) {
-      throw new DlmmPairsError('Global config is not set', ConfigErrorCode.InvalidConfig)
-    }
-
-    if (!reward_vault) {
-      throw new DlmmPairsError('Reward vault is not set', ConfigErrorCode.InvalidConfig)
-    }
-
-    tx ??= new Transaction()
-    const coin = tx.moveCall({
-      target: `${published_at}::lb_pair::collect_position_rewards2`,
-      arguments: [
-        tx.object(global_config),
-        tx.object(pairId),
-        tx.pure.u64(binIds.length),
-        tx.pure.vector('u128', encodeU32ToU128(binIds)),
-        tx.object(positionId),
-        tx.object(reward_vault),
-        tx.object(CLOCK_ADDRESS),
-      ],
-      typeArguments: [typeX, typeY, rewardCoin],
-    })
-
-    return [tx, coin] as const
-  }
-
-  /**
    * Get the amount of pending rewards for a position (view function)
    * @param params - Reward query parameters
    *   @param params.pairId - ID of the pair containing the position
@@ -690,54 +531,6 @@ export class TransactionUtil {
         tx.object(positionId), 
         tx.pure.vector('u32', binIds), 
         tx.object(CLOCK_ADDRESS)
-      ],
-      typeArguments: [typeX, typeY, rewardCoin],
-    })
-
-    return [tx, amount] as const
-  }
-
-  /**
-   * Get the amount of pending rewards for a position (view function)
-   * @param params - Reward query parameters
-   *   @param params.pairId - ID of the pair containing the position
-   *   @param params.positionId - ID of the position to query rewards for
-   *   @param params.rewardCoin - Type of reward coin to query
-   *   @param params.typeX - Type of token X in the pair
-   *   @param params.typeY - Type of token Y in the pair
-   * @param sdkOptions - SDK configuration options
-   * @param tx - Optional existing transaction to add to
-   * @returns Tuple of [Transaction, amount result]
-   *
-   * @example
-   * ```typescript
-   * const [tx, amount] = await TransactionUtil.getPositionRewards({
-   *   pairId: "0x123...",
-   *   positionId: "0x456...",
-   *   rewardCoin: "0x789::token::TOKEN",
-   *   typeX: "0x2::sui::SUI",
-   *   typeY: "0xabc::usdc::USDC"
-   * }, sdkOptions);
-   * ```
-   */
-  static async getPositionRewardsV2(
-    { pairId, positionId, rewardCoin, typeX, typeY, binIds }: CollectPositionRewardsParams,
-    sdkOptions: SdkOptions,
-    tx?: Transaction
-  ) {
-    const {
-      dlmm_pool: { published_at },
-    } = sdkOptions
-
-    tx ??= new Transaction()
-    const amount = tx.moveCall({
-      target: `${published_at}::lb_pair::get_pending_rewards2`,
-      arguments: [
-        tx.object(pairId),
-        tx.object(positionId),
-        tx.pure.u64(binIds.length),
-        tx.pure.vector('u128', encodeU32ToU128(binIds)),
-        tx.object(CLOCK_ADDRESS),
       ],
       typeArguments: [typeX, typeY, rewardCoin],
     })
@@ -792,65 +585,6 @@ export class TransactionUtil {
     const [coinX, coinY] = tx.moveCall({
       target: `${published_at}::lb_pair::collect_position_fees`,
       arguments: [tx.object(global_config), tx.object(pairId), tx.object(positionId), tx.pure.vector('u32', binIds)],
-      typeArguments: [typeX, typeY],
-    })
-
-    return [tx, coinX, coinY] as const
-  }
-
-  /**
-   * Collect accumulated fees from specific bins of a position
-   * @param params - Fee collection parameters
-   *   @param params.pairId - ID of the pair containing the position
-   *   @param params.positionId - ID of the position to collect fees from
-   *   @param params.binIds - Array of bin IDs to collect fees from
-   *   @param params.typeX - Type of token X in the pair
-   *   @param params.typeY - Type of token Y in the pair
-   * @param sdkOptions - SDK configuration options
-   * @param tx - Optional existing transaction to add to
-   * @returns Tuple of [Transaction, coinX fees, coinY fees]
-   * @throws DlmmPairsError if global config or reward vault is not set
-   *
-   * @example
-   * ```typescript
-   * const [tx, feesX, feesY] = TransactionUtil.collectPositionFees({
-   *   pairId: "0x123...",
-   *   positionId: "0x456...",
-   *   binIds: [8388608, 8388609],
-   *   typeX: "0x2::sui::SUI",
-   *   typeY: "0xabc::usdc::USDC"
-   * }, sdkOptions);
-   * ```
-   */
-  static collectPositionFeesV2(
-    { pairId, positionId, binIds, typeX, typeY }: CollectPositionFeesParams,
-    sdkOptions: SdkOptions,
-    tx?: Transaction
-  ) {
-    const {
-      dlmm_pool: { published_at, config },
-    } = sdkOptions
-
-    const { global_config, reward_vault } = config ?? {}
-
-    if (!global_config) {
-      throw new DlmmPairsError('Global config is not set', ConfigErrorCode.InvalidConfig)
-    }
-
-    if (!reward_vault) {
-      throw new DlmmPairsError('Reward vault is not set', ConfigErrorCode.InvalidConfig)
-    }
-
-    tx ??= new Transaction()
-    const [coinX, coinY] = tx.moveCall({
-      target: `${published_at}::lb_pair::collect_position_fees2`,
-      arguments: [
-        tx.object(global_config),
-        tx.object(pairId),
-        tx.object(positionId),
-        tx.pure.u64(binIds.length),
-        tx.pure.vector('u128', encodeU32ToU128(binIds)),
-      ],
       typeArguments: [typeX, typeY],
     })
 
@@ -945,48 +679,6 @@ export class TransactionUtil {
     const [_, __, feeX, feeY] = tx.moveCall({
       target: `${published_at}::lb_pair::get_pending_fees`,
       arguments: [tx.object(pairId), tx.object(positionId), tx.pure.vector('u32', binIds)],
-      typeArguments: [typeX, typeY],
-    })
-
-    return [tx, feeX, feeY] as const
-  }
-
-  /**
-   * Get the total amount of pending fees for specific bins of a position (view function)
-   * @param params - Fee query parameters
-   *   @param params.pairId - ID of the pair containing the position
-   *   @param params.positionId - ID of the position to query fees for
-   *   @param params.binIds - Array of bin IDs to query fees for
-   *   @param params.typeX - Type of token X in the pair
-   *   @param params.typeY - Type of token Y in the pair
-   * @param sdkOptions - SDK configuration options
-   * @param tx - Optional existing transaction to add to
-   * @returns Tuple of [Transaction, fees amount result]
-   *
-   * @example
-   * ```typescript
-   * const [tx, feesAmount] = await TransactionUtil.getPositionFees({
-   *   pairId: "0x123...",
-   *   positionId: "0x456...",
-   *   binIds: [8388608, 8388609, 8388610],
-   *   typeX: "0x2::sui::SUI",
-   *   typeY: "0xabc::usdc::USDC"
-   * }, sdkOptions);
-   * ```
-   */
-  static async getPositionFeesV2(
-    { pairId, positionId, binIds, typeX, typeY }: CollectPositionFeesParams,
-    sdkOptions: SdkOptions,
-    tx?: Transaction
-  ) {
-    const {
-      dlmm_pool: { published_at },
-    } = sdkOptions
-
-    tx ??= new Transaction()
-    const [_, __, feeX, feeY] = tx.moveCall({
-      target: `${published_at}::lb_pair::get_pending_fees2`,
-      arguments: [tx.object(pairId), tx.object(positionId), tx.pure.u64(binIds.length), tx.pure.vector('u128', encodeU32ToU128(binIds))],
       typeArguments: [typeX, typeY],
     })
 

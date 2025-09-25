@@ -329,77 +329,6 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Calculate pending reward amounts for a position across all rewarders
-   * @param pair - The LBPair containing the position
-   * @param positionId - ID of the position to check rewards for
-   * @returns Promise resolving to array of pending rewards by coin type
-   *
-   * @example
-   * ```typescript
-   * const rewards = await positionModule.getPositionRewards(pair, "0x123...");
-   * rewards.forEach(reward => {
-   *   console.log(`Pending ${reward.amount} of ${reward.coinType}`);
-   * });
-   * ```
-   */
-  public async getPositionRewardsV2(pair: LBPair, positionId: string, binIds: number[]): Promise<PositionReward[]> {
-    const rewards: PositionReward[] = []
-    const sender = this.sdk.senderAddress
-    const tx = new Transaction()
-    TransactionUtil.collectPositionFeesV2(
-      {
-        pairId: pair.id,
-        positionId,
-        typeX: pair.tokenXType,
-        typeY: pair.tokenYType,
-        binIds,
-      },
-      this.sdk.sdkOptions,
-      tx
-    )
-    
-    for (const reward of pair.rewarders) {
-      TransactionUtil.collectPositionRewards(
-        {
-          pairId: pair.id,
-          positionId,
-          rewardCoin: reward.reward_coin,
-          typeX: pair.tokenXType,
-          typeY: pair.tokenYType,
-          binIds,
-        },
-        this.sdk.sdkOptions,
-        tx
-      )
-    }
-    const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
-    let skipped = false;
-
-    for (const index in res.results ?? []) {
-      if (!skipped) {
-        skipped = true;
-      continue
-      }
-      const result = res.results![index]
-
-      const coin = "0x2::coin::Coin";
-      if (!result.returnValues?.[0]?.[1].startsWith(coin)) {
-        continue
-      }
-      
-      const resValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
-      const value = bcs.struct("", { address: bcs.Address, value: bcs.u64() }).parse(resValue)
-      
-      rewards.push({
-        amount: value.value,
-        coinType: normalizeStructTag(result.returnValues?.[0]?.[1]),
-      })
-    }
-
-    return rewards
-  }
-
-  /**
    * Claim all pending rewards for a position and transfer to sender
    * @param pair - The LBPair containing the position
    * @param positionId - ID of the position to claim rewards for
@@ -419,44 +348,6 @@ export class PositionModule implements IModule {
 
     for (const reward of pair.rewarders) {
       const [_, coin] = TransactionUtil.collectPositionRewards(
-        {
-          pairId: pair.id,
-          positionId,
-          rewardCoin: reward.reward_coin,
-          typeX: pair.tokenXType,
-          typeY: pair.tokenYType,
-          binIds,
-        },
-        this.sdk.sdkOptions,
-        tx
-      )
-
-      tx.transferObjects([coin], sender)
-    }
-
-    return tx
-  }
-
-  /**
-   * Claim all pending rewards for a position and transfer to sender
-   * @param pair - The LBPair containing the position
-   * @param positionId - ID of the position to claim rewards for
-   * @param tx - Optional existing transaction to add operations to
-   * @returns Transaction object with reward claiming operations
-   *
-   * @example
-   * ```typescript
-   * const tx = await positionModule.claimPositionRewards(pair, "0x123...");
-   * // All pending rewards will be transferred to sender
-   * ```
-   */
-  public async claimPositionRewardsV2(pair: LBPair, positionId: string, binIds: number[], tx?: Transaction): Promise<Transaction> {
-    const sender = this.sdk.senderAddress
-    tx ??= new Transaction()
-    tx.setSender(sender)
-
-    for (const reward of pair.rewarders) {
-      const [_, coin] = TransactionUtil.collectPositionRewardsV2(
         {
           pairId: pair.id,
           positionId,
@@ -532,61 +423,6 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Calculate pending fee amounts for specific bins of a position
-   * @param pair - The LBPair containing the position
-   * @param positionId - ID of the position to check fees for
-   * @param binIds - Array of bin IDs to calculate fees for
-   * @returns Promise resolving to tuple of [tokenX fees, tokenY fees] or null
-   *
-   * @example
-   * ```typescript
-   * const fees = await positionModule.getPositionFees(pair, "0x123...", [8388608, 8388609]);
-   * if (fees) {
-   *   console.log(`Fees: ${fees[0].amount} tokenX, ${fees[1].amount} tokenY`);
-   * }
-   * ```
-   */
-  public async getPositionFeesV2(pair: LBPair, positionId: string, binIds: number[]): Promise<[PositionReward, PositionReward] | null> {
-    let rewards: [PositionReward, PositionReward] | null = null
-    const sender = this.sdk.senderAddress
-    const tx = new Transaction()
-    TransactionUtil.getPositionFeesV2(
-      {
-        pairId: pair.id,
-        positionId,
-        typeX: pair.tokenXType,
-        typeY: pair.tokenYType,
-        binIds,
-      },
-      this.sdk.sdkOptions,
-      tx
-    )
-    const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
-
-    for (const index in res.results ?? []) {
-      const result = res.results![index]
-      const resXValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
-      const valueX = bcs.u64().parse(resXValue)
-
-      const resYValue = new Uint8Array(result.returnValues?.[1]?.[0] ?? [])
-      const valueY = bcs.u64().parse(resYValue)
-
-      rewards = [
-        {
-          amount: valueX,
-          coinType: pair.tokenXType,
-        },
-        {
-          amount: valueY,
-          coinType: pair.tokenYType,
-        },
-      ]
-    }
-
-    return rewards
-  }
-
-  /**
    * Claim accumulated fees for specific bins of a position
    * @param pair - The LBPair containing the position
    * @param positionId - ID of the position to claim fees for
@@ -610,47 +446,6 @@ export class PositionModule implements IModule {
       const bins = binIds.slice(index, index + BATCH_SIZE)
 
       const [_, coinX, coinY] = TransactionUtil.collectPositionFees(
-        {
-          pairId: pair.id,
-          positionId,
-          binIds: bins,
-          typeX: pair.tokenXType,
-          typeY: pair.tokenYType,
-        },
-        this.sdk.sdkOptions,
-        tx
-      )
-
-      tx.transferObjects([coinX, coinY], sender)
-    }
-
-    return tx
-  }
-
-  /**
-   * Claim accumulated fees for specific bins of a position
-   * @param pair - The LBPair containing the position
-   * @param positionId - ID of the position to claim fees for
-   * @param binIds - Array of bin IDs to claim fees from
-   * @param tx - Optional existing transaction to add operations to
-   * @returns Transaction object with fee claiming operations
-   *
-   * @example
-   * ```typescript
-   * const binIds = [8388608, 8388609, 8388610];
-   * const tx = await positionModule.claimPositionFee(pair, "0x123...", binIds);
-   * // Fees from specified bins will be transferred to sender
-   * ```
-   */
-  public async claimPositionFeeV2(pair: LBPair, positionId: string, binIds: number[], tx?: Transaction): Promise<Transaction> {
-    const sender = this.sdk.senderAddress
-    const BATCH_SIZE = 1000
-    tx ??= new Transaction()
-    tx.setSender(sender)
-    for (let index = 0; index < binIds.length; index += BATCH_SIZE) {
-      const bins = binIds.slice(index, index + BATCH_SIZE)
-
-      const [_, coinX, coinY] = TransactionUtil.collectPositionFeesV2(
         {
           pairId: pair.id,
           positionId,
