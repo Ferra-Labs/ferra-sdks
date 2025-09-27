@@ -14,7 +14,7 @@ import {
 } from '../interfaces/IPair'
 import { SuiObjectResponse, SuiParsedData } from '@mysten/sui/client'
 import { PrepareSwapParams } from '../interfaces/ISwap'
-import { checkInvalidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
+import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
 import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
 import { Transaction, type TransactionResult, coinWithBalance } from '@mysten/sui/transactions'
 import { CoinAssist } from '../math'
@@ -363,7 +363,7 @@ export class PairModule implements IModule {
     const xtoy = params.xtoy ?? true
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new DlmmPairsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -628,7 +628,7 @@ export class PairModule implements IModule {
     const sender = this.sdk.senderAddress
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new DlmmPairsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -671,7 +671,7 @@ export class PairModule implements IModule {
     const sender = this.sdk.senderAddress
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new DlmmPairsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress

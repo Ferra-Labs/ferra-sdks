@@ -2,7 +2,7 @@ import BN from 'bn.js'
 import { Graph, GraphEdge, GraphVertex } from '@syntsugar/cc-graph'
 import { Transaction } from '@mysten/sui/transactions'
 import { PreSwapLpChangeParams, PreSwapWithMultiPoolParams } from '../types'
-import { checkInvalidSuiAddress, extractStructTagFromType } from '../utils'
+import { checkValidSuiAddress, extractStructTagFromType } from '../utils'
 import { ClmmExpectSwapModule, ClmmIntegrateRouterModule, SuiAddressType } from '../types/sui'
 import { FerraClmmSDK } from '../sdk'
 import { IModule } from '../interfaces/IModule'
@@ -798,7 +798,7 @@ export class RouterModule implements IModule {
       }
     }
 
-    if (!checkInvalidSuiAddress(simulationAccount.address)) {
+    if (!checkValidSuiAddress(simulationAccount.address)) {
       throw new ClmmpoolsError('Invalid simulation account configuration', ConfigErrorCode.InvalidSimulateAccount)
     }
 

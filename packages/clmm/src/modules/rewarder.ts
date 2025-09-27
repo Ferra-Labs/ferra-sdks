@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import BN from 'bn.js'
 import { Transaction, TransactionArgument, TransactionObjectArgument } from '@mysten/sui/transactions'
-import { BuildCoinResult, checkInvalidSuiAddress, extractStructTagFromType, normalizeCoinType, TransactionUtil } from '../utils'
+import { BuildCoinResult, checkValidSuiAddress, extractStructTagFromType, normalizeCoinType, TransactionUtil } from '../utils'
 import { ClmmFetcherModule, ClmmIntegratePoolModule, CLOCK_ADDRESS } from '../types/sui'
 import { getRewardInTickRange } from '../utils/tick'
 import { MathUtil, ONE, ZERO } from '../math/utils'
@@ -278,7 +278,7 @@ export class RewarderModule implements IModule {
       })
     }
 
-    if (!checkInvalidSuiAddress(simulationAccount.address)) {
+    if (!checkValidSuiAddress(simulationAccount.address)) {
       throw new ClmmpoolsError(
         `this config simulationAccount: ${simulationAccount.address} is not set right`,
         ConfigErrorCode.InvalidSimulateAccount
@@ -397,7 +397,7 @@ export class RewarderModule implements IModule {
    * @returns Transaction object for reward collection
    */
   async collectRewarderTransactionPayload(params: CollectRewarderParams, tx?: Transaction): Promise<Transaction> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -425,7 +425,7 @@ export class RewarderModule implements IModule {
     inputCoinA?: TransactionObjectArgument,
     inputCoinB?: TransactionObjectArgument
   ) {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress

@@ -22,7 +22,7 @@ import {
   buildPositionTransactionInfo,
   cacheTime24h,
   cacheTime5min,
-  checkInvalidSuiAddress,
+  checkValidSuiAddress,
   extractStructTagFromType,
   getFutureTime,
 } from '../utils'
@@ -347,7 +347,7 @@ export class PositionModule implements IModule {
       })
     }
 
-    if (!checkInvalidSuiAddress(simulationAccount.address)) {
+    if (!checkValidSuiAddress(simulationAccount.address)) {
       throw new ClmmpoolsError('this config simulationAccount is not set right', ConfigErrorCode.InvalidSimulateAccount)
     }
 
@@ -439,7 +439,7 @@ export class PositionModule implements IModule {
     inputCoinA?: TransactionObjectArgument,
     inputCoinB?: TransactionObjectArgument
   ): Promise<Transaction> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -484,7 +484,7 @@ export class PositionModule implements IModule {
     inputCoinB?: TransactionObjectArgument
   ): Promise<Transaction> {
     const { integrate, clmm_pool } = this._sdk.sdkOptions
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -581,7 +581,7 @@ export class PositionModule implements IModule {
    * @returns Transaction object for removing liquidity
    */
   async removeLiquidityTransactionPayload(params: RemoveLiquidityParams, tx?: Transaction): Promise<Transaction> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -627,7 +627,7 @@ export class PositionModule implements IModule {
    * @returns Transaction object for closing position
    */
   async closePositionTransactionPayload(params: ClosePositionParams, tx?: Transaction): Promise<Transaction> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -740,7 +740,7 @@ export class PositionModule implements IModule {
     inputCoinA?: TransactionObjectArgument,
     inputCoinB?: TransactionObjectArgument
   ): Promise<Transaction> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -830,7 +830,7 @@ export class PositionModule implements IModule {
    */
   async calculateFee(params: CollectFeeParams) {
     const paylod = await this.collectFeeTransactionPayload(params)
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress

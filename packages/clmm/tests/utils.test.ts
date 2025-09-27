@@ -1,4 +1,4 @@
-import { checkInvalidSuiAddress } from '../src/utils'
+import { checkValidSuiAddress } from '../src/utils'
 
 describe('Utils functions test', () => {
     test('test check invalid sui address', async () => {
@@ -18,8 +18,8 @@ describe('Utils functions test', () => {
         ]
 
         for (const item of testAddress) {
-            console.log(checkInvalidSuiAddress(item.address))
-            expect(checkInvalidSuiAddress(item.address)).toBe(item.result)
+            console.log(checkValidSuiAddress(item.address))
+            expect(checkValidSuiAddress(item.address)).toBe(item.result)
         }
     })
 

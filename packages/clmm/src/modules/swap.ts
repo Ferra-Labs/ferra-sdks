@@ -20,7 +20,7 @@ import { IModule } from '../interfaces/IModule'
 import { SwapUtils } from '../math/swap'
 import { computeSwap } from '../math/clmm'
 import { TickMath } from '../math/tick'
-import { checkInvalidSuiAddress, d } from '../utils'
+import { checkValidSuiAddress, d } from '../utils'
 import { SplitPath } from './router'
 import { ClmmpoolsError, ConfigErrorCode, SwapErrorCode, UtilsErrorCode } from '../errors/errors'
 
@@ -64,7 +64,7 @@ export class SwapModule implements IModule {
       })
     }
 
-    if (!checkInvalidSuiAddress(simulationAccount.address)) {
+    if (!checkValidSuiAddress(simulationAccount.address)) {
       throw new ClmmpoolsError('Invalid simulation account configuration', ConfigErrorCode.InvalidSimulateAccount)
     }
 
@@ -156,7 +156,7 @@ export class SwapModule implements IModule {
       typeArguments: coinTypes,
     })
 
-    if (!checkInvalidSuiAddress(simulationAccount.address)) {
+    if (!checkValidSuiAddress(simulationAccount.address)) {
       throw new ClmmpoolsError('Invalid simulation account configuration', ConfigErrorCode.InvalidSimulateAccount)
     }
 
@@ -294,13 +294,9 @@ export class SwapModule implements IModule {
       calculationParams.decimalsA,
       calculationParams.decimalsB
     ).toNumber()
-    const finalPrice = TickMath.sqrtPriceX64ToPrice(
-      swapCalculationResult.nextSqrtPrice,
-      calculationParams.decimalsA,
-      calculationParams.decimalsB
-    ).toNumber()
+    const executionPrice = new Decimal(swapCalculationResult.amountOut.toNumber()).div(swapCalculationResult.amountIn.toNumber()).toNumber()
 
-    const priceImpactPercentage = (Math.abs(initialPrice - finalPrice) / initialPrice) * 100
+    const priceImpactPercentage = ((executionPrice - initialPrice) / initialPrice) * 100
 
     return {
       estimatedAmountIn: swapCalculationResult.amountIn,
@@ -333,7 +329,7 @@ export class SwapModule implements IModule {
       currentPool: Pool
     }
   ): Promise<Transaction> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: Ferra CLMM SDK requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -376,7 +372,7 @@ export class SwapModule implements IModule {
       currentPool: Pool
     }
   ): Promise<{ tx: Transaction; coinABs: TransactionObjectArgument[] }> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: Ferra CLMM SDK requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress

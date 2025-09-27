@@ -1,10 +1,11 @@
-import { Transaction } from '@mysten/sui/transactions'
+import { Inputs, Transaction } from '@mysten/sui/transactions'
 import {
   DevInspectResults,
   DynamicFieldPage,
   PaginatedEvents,
   PaginatedObjectsResponse,
   PaginatedTransactionResponse,
+  QueryTransactionBlocksParams,
   SuiClient,
   SuiEventFilter,
   SuiObjectDataOptions,
@@ -16,249 +17,266 @@ import {
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 import { Secp256k1Keypair } from '@mysten/sui/keypairs/secp256k1'
 
+
 import { DataPage, PaginationArgs, SuiObjectIdType } from '../types'
 
 /**
- * RPC module for making remote procedure calls to Sui blockchain
- * Extends SuiClient to provide enhanced pagination, batching, and transaction utilities
- * Handles event querying, object retrieval, and transaction simulation/execution
+ * Represents a module for making RPC (Remote Procedure Call) requests.
  */
 export class RpcModule extends SuiClient {
   /**
-   * Retrieves events matching the given query criteria with pagination support
-   * @param eventFilter - Filter criteria for event selection
-   * @param paginationConfig - Pagination configuration ('all' or specific limits)
-   * @returns Promise resolving to paginated event data
+   * Get events for a given query criteria
+   * @param query
+   * @param paginationArgs
+   * @returns
    */
-  async queryEventsByPage(eventFilter: SuiEventFilter, paginationConfig: PaginationArgs = 'all'): Promise<DataPage<any>> {
-    let combinedResults: any = []
-    let hasMorePages = true
-    const shouldQueryAll = paginationConfig === 'all'
-    let currentCursor = shouldQueryAll ? null : paginationConfig.cursor
+  async queryEventsByPage(query: SuiEventFilter, paginationArgs: PaginationArgs = 'all'): Promise<DataPage<any>> {
+    let result: any = []
+    let hasNextPage = true
+    const queryAll = paginationArgs === 'all'
+    let nextCursor = queryAll ? null : paginationArgs.cursor
 
     do {
-      const eventResponse: PaginatedEvents = await this.queryEvents({
-        query: eventFilter,
-        cursor: currentCursor,
-        limit: shouldQueryAll ? null : paginationConfig.limit,
+      const res: PaginatedEvents = await this.queryEvents({
+        query,
+        cursor: nextCursor,
+        limit: queryAll ? null : paginationArgs.limit,
       })
-
-      if (eventResponse.data) {
-        combinedResults = [...combinedResults, ...eventResponse.data]
-        hasMorePages = eventResponse.hasNextPage
-        currentCursor = eventResponse.nextCursor
+      if (res.data) {
+        result = [...result, ...res.data]
+        hasNextPage = res.hasNextPage
+        nextCursor = res.nextCursor
       } else {
-        hasMorePages = false
+        hasNextPage = false
       }
-    } while (shouldQueryAll && hasMorePages)
+    } while (queryAll && hasNextPage)
 
-    return { data: combinedResults, nextCursor: currentCursor, hasNextPage: hasMorePages }
+    return { data: result, nextCursor, hasNextPage }
   }
 
-  /**
-   * Queries transaction blocks with pagination support
-   * @param transactionFilter - Optional filter for transaction selection
-   * @param paginationConfig - Pagination configuration ('all' or specific limits)
-   * @param sortOrder - Sort order for results (ascending/descending)
-   * @returns Promise resolving to paginated transaction data
-   */
   async queryTransactionBlocksByPage(
-    transactionFilter?: TransactionFilter,
-    paginationConfig: PaginationArgs = 'all',
-    sortOrder: 'ascending' | 'descending' | null | undefined = 'ascending'
+    filter?: TransactionFilter,
+    paginationArgs: PaginationArgs = 'all',
+    order: 'ascending' | 'descending' | null | undefined = 'ascending'
   ): Promise<DataPage<SuiTransactionBlockResponse>> {
-    let combinedResults: any = []
-    let hasMorePages = true
-    const shouldQueryAll = paginationConfig === 'all'
-    let currentCursor = shouldQueryAll ? null : paginationConfig.cursor
+    let result: any = []
+    let hasNextPage = true
+    const queryAll = paginationArgs === 'all'
+    let nextCursor = queryAll ? null : paginationArgs.cursor
 
     do {
-      const transactionResponse: PaginatedTransactionResponse = await this.queryTransactionBlocks({
-        filter: transactionFilter,
-        cursor: currentCursor,
-        order: sortOrder,
-        limit: shouldQueryAll ? null : paginationConfig.limit,
+      const res: PaginatedTransactionResponse = await this.queryTransactionBlocks({
+        filter,
+        cursor: nextCursor,
+        order,
+        limit: queryAll ? null : paginationArgs.limit,
         options: { showEvents: true },
       })
-
-      if (transactionResponse.data) {
-        combinedResults = [...combinedResults, ...transactionResponse.data]
-        hasMorePages = transactionResponse.hasNextPage
-        currentCursor = transactionResponse.nextCursor
+      if (res.data) {
+        result = [...result, ...res.data]
+        hasNextPage = res.hasNextPage
+        nextCursor = res.nextCursor
       } else {
-        hasMorePages = false
+        hasNextPage = false
       }
-    } while (shouldQueryAll && hasMorePages)
+    } while (queryAll && hasNextPage)
 
-    return { data: combinedResults, nextCursor: currentCursor, hasNextPage: hasMorePages }
+    return { data: result, nextCursor, hasNextPage }
   }
 
   /**
-   * Retrieves all objects owned by a specific address with pagination
-   * @param ownerAddress - Address of the object owner
-   * @param queryOptions - Query options for object filtering
-   * @param paginationConfig - Pagination configuration ('all' or specific limits)
-   * @returns Promise resolving to paginated owned objects data
+   * Get all objects owned by an address
+   * @param owner
+   * @param query
+   * @param paginationArgs
+   * @returns
    */
   async getOwnedObjectsByPage(
-    ownerAddress: string,
-    queryOptions: SuiObjectResponseQuery,
-    paginationConfig: PaginationArgs = 'all'
+    owner: string,
+    query: SuiObjectResponseQuery,
+    paginationArgs: PaginationArgs = 'all'
   ): Promise<DataPage<any>> {
-    let combinedResults: any = []
-    let hasMorePages = true
-    const shouldQueryAll = paginationConfig === 'all'
-    let currentCursor = shouldQueryAll ? null : paginationConfig.cursor
-
+    let result: any = []
+    let hasNextPage = true
+    const queryAll = paginationArgs === 'all'
+    let nextCursor = queryAll ? null : paginationArgs.cursor
     do {
-      const objectResponse: PaginatedObjectsResponse = await this.getOwnedObjects({
-        owner: ownerAddress,
-        ...queryOptions,
-        cursor: currentCursor,
-        limit: shouldQueryAll ? null : paginationConfig.limit,
+      const res: PaginatedObjectsResponse = await this.getOwnedObjects({
+        owner,
+        ...query,
+        cursor: nextCursor,
+        limit: queryAll ? null : paginationArgs.limit,
       })
-
-      if (objectResponse.data) {
-        combinedResults = [...combinedResults, ...objectResponse.data]
-        hasMorePages = objectResponse.hasNextPage
-        currentCursor = objectResponse.nextCursor
+      if (res.data) {
+        result = [...result, ...res.data]
+        hasNextPage = res.hasNextPage
+        nextCursor = res.nextCursor
       } else {
-        hasMorePages = false
+        hasNextPage = false
       }
-    } while (shouldQueryAll && hasMorePages)
+    } while (queryAll && hasNextPage)
 
-    return { data: combinedResults, nextCursor: currentCursor, hasNextPage: hasMorePages }
+    return { data: result, nextCursor, hasNextPage }
   }
 
   /**
-   * Retrieves dynamic fields for a parent object with pagination support
-   * @param parentObjectId - ID of the parent object containing dynamic fields
-   * @param paginationConfig - Pagination configuration ('all' or specific limits)
-   * @returns Promise resolving to paginated dynamic fields data
+   * Return the list of dynamic field objects owned by an object
+   * @param parentId
+   * @param paginationArgs
+   * @returns
    */
-  async getDynamicFieldsByPage(parentObjectId: SuiObjectIdType, paginationConfig: PaginationArgs = 'all'): Promise<DataPage<any>> {
-    let combinedResults: any = []
-    let hasMorePages = true
-    const shouldQueryAll = paginationConfig === 'all'
-    let currentCursor = shouldQueryAll ? null : paginationConfig.cursor
-
+  async getDynamicFieldsByPage(parentId: SuiObjectIdType, paginationArgs: PaginationArgs = 'all'): Promise<DataPage<any>> {
+    let result: any = []
+    let hasNextPage = true
+    const queryAll = paginationArgs === 'all'
+    let nextCursor = queryAll ? null : paginationArgs.cursor
     do {
-      const dynamicFieldResponse: DynamicFieldPage = await this.getDynamicFields({
-        parentId: parentObjectId,
-        cursor: currentCursor,
-        limit: shouldQueryAll ? null : paginationConfig.limit,
+      const res: DynamicFieldPage = await this.getDynamicFields({
+        parentId,
+        cursor: nextCursor,
+        limit: queryAll ? null : paginationArgs.limit,
       })
 
-      if (dynamicFieldResponse.data) {
-        combinedResults = [...combinedResults, ...dynamicFieldResponse.data]
-        hasMorePages = dynamicFieldResponse.hasNextPage
-        currentCursor = dynamicFieldResponse.nextCursor
+      if (res.data) {
+        result = [...result, ...res.data]
+        hasNextPage = res.hasNextPage
+        nextCursor = res.nextCursor
       } else {
-        hasMorePages = false
+        hasNextPage = false
       }
-    } while (shouldQueryAll && hasMorePages)
+    } while (queryAll && hasNextPage)
 
-    return { data: combinedResults, nextCursor: currentCursor, hasNextPage: hasMorePages }
+    return { data: result, nextCursor, hasNextPage }
   }
 
   /**
-   * Retrieves object details in batches to avoid API limits
-   * Note: Duplicate object IDs will cause the call to fail
-   * @param objectIds - Array of object IDs to retrieve
-   * @param dataOptions - Options for object data retrieval
-   * @param batchSize - Maximum number of objects per batch request
-   * @returns Promise resolving to array of object responses
+   * Batch get details about a list of objects. If any of the object ids are duplicates the call will fail
+   * @param ids
+   * @param options
+   * @param limit
+   * @returns
    */
-  async batchGetObjects(objectIds: SuiObjectIdType[], dataOptions?: SuiObjectDataOptions, batchSize = 50): Promise<SuiObjectResponse[]> {
-    let objectResponses: SuiObjectResponse[] = []
+  async batchGetObjects(ids: SuiObjectIdType[], options?: SuiObjectDataOptions, limit = 50): Promise<SuiObjectResponse[]> {
+    let objectDataResponses: SuiObjectResponse[] = []
 
-    try {
-      for (let batchIndex = 0; batchIndex < Math.ceil(objectIds.length / batchSize); batchIndex++) {
-        const batchResponse = await this.multiGetObjects({
-          ids: objectIds.slice(batchIndex * batchSize, batchSize * (batchIndex + 1)),
-          options: dataOptions,
+    for (let i = 0; i < Math.ceil(ids.length / limit); i++) {
+      try {
+        const res = await this.multiGetObjects({
+          ids: ids.slice(i * limit, limit * (i + 1)),
+          options,
         })
-        objectResponses = [...objectResponses, ...batchResponse]
+        objectDataResponses = [...objectDataResponses, ...res]
+      } catch (error) {
+        console.error(`Batch ${i} failed:`, error)
+        throw error
       }
-    } catch (batchError) {
-      console.log(batchError)
     }
 
-    return objectResponses
+    return objectDataResponses
   }
 
   /**
-   * Estimates the gas cost required for executing a transaction
-   * @param transaction - The transaction to estimate gas for
-   * @returns Promise resolving to the estimated gas cost
-   * @throws Error if transaction sender is not specified
-   */
-  async calculationTxGas(transaction: Transaction): Promise<number> {
-    const { sender } = transaction.blockData
+ * Calculates the gas cost of a transaction block.
+ * @param {Transaction} tx - The transaction block to calculate gas for.
+ * @returns {Promise<number>} - The estimated gas cost of the transaction block.
+ * @throws {Error} - Throws an error if the sender is empty or devInspect fails.
+ */
+  async calculationTxGas(tx: Transaction): Promise<number> {
+    const { sender } = tx.blockData
 
     if (sender === undefined) {
-      throw Error('Transaction sender is required for gas calculation')
+      throw Error('Transaction sender is required')
     }
 
-    const inspectionResult = await this.devInspectTransactionBlock({
-      transactionBlock: transaction,
+    const devResult = await this.devInspectTransactionBlock({
+      transactionBlock: tx,
       sender,
     })
-    const { gasUsed } = inspectionResult.effects
 
-    const totalGasCost = Number(gasUsed.computationCost) + Number(gasUsed.storageCost) - Number(gasUsed.storageRebate)
-    return totalGasCost
+    // CHECK FOR ERRORS FIRST
+    if (devResult.error) {
+      console.error('DevInspect failed:', devResult.error)
+      throw new Error(`Gas estimation failed: ${devResult.error}`)
+    }
+
+    // CHECK EFFECTS EXISTS
+    if (!devResult.effects) {
+      throw new Error('Gas estimation failed: No effects returned from devInspect')
+    }
+
+    // CHECK GASUSED EXISTS
+    if (!devResult.effects.gasUsed) {
+      throw new Error('Gas estimation failed: No gas information in effects')
+    }
+
+    const { gasUsed } = devResult.effects
+
+    // VALIDATE GAS VALUES
+    if (!gasUsed.computationCost || !gasUsed.storageCost || gasUsed.storageRebate === undefined) {
+      throw new Error('Gas estimation failed: Incomplete gas information')
+    }
+
+    const estimateGas =
+      Number(gasUsed.computationCost) +
+      Number(gasUsed.storageCost) -
+      Number(gasUsed.storageRebate)
+
+    // SANITY CHECK
+    if (estimateGas < 0 || !Number.isFinite(estimateGas)) {
+      throw new Error(`Gas estimation failed: Invalid gas value ${estimateGas}`)
+    }
+
+    return estimateGas
   }
 
   /**
-   * Signs and executes a transaction using the provided keypair
-   * @param signingKeypair - Keypair for transaction signing (Ed25519 or Secp256k1)
-   * @param transaction - Transaction to sign and execute
-   * @returns Promise resolving to transaction response or undefined on failure
+   * Sends a transaction block after signing it with the provided keypair.
+   *
+   * @param {Ed25519Keypair | Secp256k1Keypair} keypair - The keypair used for signing the transaction.
+   * @param {Transaction} tx - The transaction block to send.
+   * @returns {Promise<SuiTransactionBlockResponse | undefined>} - The response of the sent transaction block.
    */
-  async sendTransaction(signingKeypair: Ed25519Keypair | Secp256k1Keypair, transaction: Transaction): Promise<SuiTransactionBlockResponse | undefined> {
+  async sendTransaction(keypair: Ed25519Keypair | Secp256k1Keypair, tx: Transaction): Promise<SuiTransactionBlockResponse | undefined> {
     try {
-      const executionResult: any = await this.signAndExecuteTransaction({
-        transaction: transaction,
-        signer: signingKeypair,
+      const resultTxn = await this.signAndExecuteTransaction({
+        transaction: tx,
+        signer: keypair,
         options: {
           showEffects: true,
           showEvents: true,
         },
       })
-      return executionResult
-    } catch (executionError) {
-      console.dir(executionError, { depth: null })
+      return resultTxn
+    } catch (error) {
+      console.error('Transaction failed:', error)
+      throw error
     }
-    return undefined
   }
 
   /**
-   * Simulates transaction execution without committing to blockchain
-   * @param transaction - Transaction to simulate
-   * @param simulationAddress - Address to use for simulation
-   * @param enableDevInspect - Whether to use DevInspect mode (default: true)
-   * @returns Promise resolving to simulation results or undefined on failure
+   * Send a simulation transaction.
+   * @param tx - The transaction block.
+   * @param simulationAccount - The simulation account.
+   * @param useDevInspect - A flag indicating whether to use DevInspect. Defaults to true.
+   * @returns A promise that resolves to DevInspectResults or undefined.
    */
   async sendSimulationTransaction(
-    transaction: Transaction,
-    simulationAddress: string,
-    enableDevInspect = true
+    tx: Transaction,
+    simulationAccount: string,
+    useDevInspect = true
   ): Promise<DevInspectResults | undefined> {
     try {
-      if (enableDevInspect) {
-        const simulationResult = await this.devInspectTransactionBlock({
-          transactionBlock: transaction,
-          sender: simulationAddress,
+      if (useDevInspect) {
+        const simulateRes = await this.devInspectTransactionBlock({
+          transactionBlock: tx,
+          sender: simulationAccount,
         })
-        return simulationResult
+        return simulateRes
       }
 
-
-    } catch (simulationError) {
-      console.log('Transaction simulation failed:', simulationError)
+    } catch (error) {
+      console.error('sendSimulationTransaction failed:', error)
+      throw error
     }
-
-    return undefined
   }
 }

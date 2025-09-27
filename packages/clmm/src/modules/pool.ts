@@ -1,7 +1,7 @@
 import { DynamicFieldPage, SuiObjectResponse, SuiTransactionBlockResponse } from '@mysten/sui/client'
 import { normalizeSuiAddress } from '@mysten/sui/utils'
 import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions'
-import { CachedContent, cacheTime24h, cacheTime5min, checkInvalidSuiAddress, getFutureTime } from '../utils'
+import { CachedContent, cacheTime24h, cacheTime5min, checkValidSuiAddress, getFutureTime } from '../utils'
 import {
   CreatePoolAddLiquidityParams,
   CreatePoolParams,
@@ -525,7 +525,7 @@ export class PoolModule implements IModule {
    * @returns Transaction object
    */
   private async createPoolAndAddLiquidity(params: CreatePoolAddLiquidityParams): Promise<Transaction> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -623,7 +623,7 @@ export class PoolModule implements IModule {
       typeArguments,
     })
 
-    if (!checkInvalidSuiAddress(simulationAccount.address)) {
+    if (!checkValidSuiAddress(simulationAccount.address)) {
       throw new ClmmpoolsError(
         'Invalid simulation account: Configuration requires a valid Sui address. Please check your SDK configuration.',
         ConfigErrorCode.InvalidSimulateAccount
@@ -682,7 +682,7 @@ export class PoolModule implements IModule {
         typeArguments,
       })
 
-      if (!checkInvalidSuiAddress(simulationAccount.address)) {
+      if (!checkValidSuiAddress(simulationAccount.address)) {
         throw new ClmmpoolsError('this config simulationAccount is not set right', ConfigErrorCode.InvalidSimulateAccount)
       }
       const simulateRes = await this.sdk.fullClient.devInspectTransactionBlock({

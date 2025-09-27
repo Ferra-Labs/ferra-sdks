@@ -1,5 +1,5 @@
 import FerraClmmSDK, { SdkOptions } from '../main'
-import { checkInvalidSuiAddress } from '../utils'
+import { checkValidSuiAddress } from '../utils'
 
 
 const SDKConfig = {
@@ -40,7 +40,7 @@ export function initBetaSDK(fullNodeUrl?: string, wallet?: string): FerraClmmSDK
     clmmBeta.fullRpcUrl = fullNodeUrl
   }
   const sdk = new FerraClmmSDK(clmmBeta)
-  if (wallet && checkInvalidSuiAddress(wallet)) {
+  if (wallet && checkValidSuiAddress(wallet)) {
     sdk.senderAddress = wallet
   }
   return sdk

@@ -1,5 +1,5 @@
 import FerraDlmmSDK, { SdkOptions } from '../main'
-import { checkInvalidSuiAddress } from '../utils'
+import { checkValidSuiAddress } from '../utils'
 
 const SDKConfig = {
   dlmmConfig: {
@@ -38,7 +38,7 @@ export function initBetaSDK(fullNodeUrl?: string, wallet?: string): FerraDlmmSDK
     dlmmBeta.fullRpcUrl = fullNodeUrl
   }
   const sdk = new FerraDlmmSDK(dlmmBeta)
-  if (wallet && checkInvalidSuiAddress(wallet)) {
+  if (wallet && checkValidSuiAddress(wallet)) {
     sdk.senderAddress = wallet
   }
   return sdk

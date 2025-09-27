@@ -3,7 +3,7 @@ import { FerraDlmmSDK } from '../sdk'
 import { CachedContent } from '../utils/cached-content'
 import { LBPair } from '../interfaces/IPair'
 import { CalculateRatesResult, CalculateSwapParams, PrepareSwapParams } from '../interfaces/ISwap'
-import { checkInvalidSuiAddress, SwapUtils, TransactionUtil } from '../utils'
+import { checkValidSuiAddress, SwapUtils, TransactionUtil } from '../utils'
 import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
 import { coinWithBalance, Transaction, type TransactionResult } from '@mysten/sui/transactions'
 import { BinMath, CoinAssist } from '../math'
@@ -60,23 +60,23 @@ export class SwapModule implements IModule {
    */
   public calculateRates(pair: LBPair, params: CalculateSwapParams): CalculateRatesResult {
     const [amountInRemain, amountOut, feeAmount, newBinId, isMaxLoop] = SwapUtils.getSwapOut(pair, params.swapBins, params.amount, params.xtoy ?? true)
-
+    const amountInCost = params.amount - amountInRemain;
     const currentBinId = pair.parameters.active_id
 
     const currentPrice = BinMath.getPriceFromId(currentBinId, Number(pair.binStep), SUI_DECIMALS, SUI_DECIMALS)
-    const newPricePrice = BinMath.getPriceFromId(Number(newBinId.toString()), Number(pair.binStep), SUI_DECIMALS, SUI_DECIMALS)
-    const priceImpactPercentage = new Decimal(currentPrice).sub(new Decimal(newPricePrice)).abs().div(currentPrice).abs().toNumber()
+    const executionPrice = Decimal(amountOut.toString()).div(amountInCost.toString())
+    const priceImpactPercentage = executionPrice.sub(currentPrice).div(currentPrice).mul(100)
 
     return {
       amount: params.amount,
-      estimatedAmountIn: params.amount - amountInRemain,
+      estimatedAmountIn: amountInCost,
       estimatedAmountOut: amountOut,
       estimatedEndBinId: Number(newBinId),
       estimatedFeeAmount: feeAmount,
       extraComputeLimit: 0,
       isExceed: amountInRemain > 0 || isMaxLoop,
       isMaxLoop,
-      priceImpactPct: priceImpactPercentage,
+      priceImpactPct: priceImpactPercentage.toNumber(),
       xToY: params.xtoy ?? true,
     }
   }
@@ -95,7 +95,7 @@ export class SwapModule implements IModule {
     const xtoy = params.xtoy ?? true
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new DlmmPairsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress

@@ -4,7 +4,7 @@ import { FerraDlmmSDK } from '../sdk'
 import { CachedContent } from '../utils/cached-content'
 import { Amounts, BinData, LBPair, LbPairBinData, LBPosition } from '../interfaces/IPair'
 import type { SuiObjectResponse, SuiParsedData } from '@mysten/sui/client'
-import { checkInvalidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
+import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
 import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
 import { LbPositionOnChain, PositionBinOnchain, PositionInfoOnChain, PositionReward } from '../interfaces/IPosition'
 
@@ -93,7 +93,7 @@ export class PositionModule implements IModule {
     } = this.sdk.sdkOptions
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new DlmmPairsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
