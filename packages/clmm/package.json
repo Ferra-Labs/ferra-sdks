@@ -1,6 +1,6 @@
 {
   "name": "@ferra-labs/clmm",
-  "version": "0.1.8-pre-release",
+  "version": "0.1.9-pre-release",
   "private": false,
   "description": "SDK for concentrated liquidity market maker",
   "main": "dist/index.js",
