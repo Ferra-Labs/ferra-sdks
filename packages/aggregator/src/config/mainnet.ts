@@ -18,8 +18,8 @@ export const aggMainnet: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   agg_pkg: {
-    package_id: '0x74342a1f88758a3b61dfd2616312a53c3ccec48e465482ceae37a3516303dc46',
-    published_at: '0x74342a1f88758a3b61dfd2616312a53c3ccec48e465482ceae37a3516303dc46',
+    package_id: '0xa5288fb7c178a8508b91b66235e853c35b553ba8e16e4ff507c963bbe4c5da8f',
+    published_at: '0xa5288fb7c178a8508b91b66235e853c35b553ba8e16e4ff507c963bbe4c5da8f',
     config: SDKConfig.aggConfig,
   },
   quoterUrl: 'https://api.ferra.ag/agg/quote',
