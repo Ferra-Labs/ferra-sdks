@@ -39,20 +39,22 @@ export async function main() {
 
   const TEST = true
 
-  const pair = await sdk.Pair.getPair('0xa713e60068016fad9d3970cd6a8876b33edf6796b8afb0561ae1f909d52e7423')
+  const pair = await sdk.Pair.getPair('0x20ce617778f92183b7b00a88a79da798af2da19f1829ce4f62d87226c9dcaa74')
   if (!pair) {
     throw new Error('Pair not found')
   }
 
   const binsData = formatBins([]);
 
-  const AMOUNT = 1_00_00_000n;
+  const AMOUNT = 10_000_000_000n;
   const XTOY = false
-
+  
   const swapOut = sdk.Swap.calculateRates(pair, {
     amount: AMOUNT,
     swapBins: binsData,
     xtoy: XTOY,
+    decimalsA: 6,
+    decimalsB: 9
   })
   console.log('swapOut', swapOut)
   if (binsData) {

@@ -8,81 +8,92 @@ import { decodeSuiPrivateKey } from '@mysten/sui/cryptography'
 
 const TICKS = [
   {
-    index: 55520,
-    sqrt_price: '296115354986006496385',
-    liquidity_net: '361741458',
-    liquidity_gross: '361741458',
-    fee_growth_outside_a: '0',
-    fee_growth_outside_b: '0',
-    rewarders_growth_outside: [],
+      "index": -443620,
+      "sqrt_price": "4298485257",
+      "liquidity_net": "76997091",
+      "liquidity_gross": "76997091",
+      "fee_growth_outside_a": "21235955800934414",
+      "fee_growth_outside_b": "424794219427463",
+      "rewarders_growth_outside": [
+          225471669413192400
+      ]
   },
   {
-    index: 55790,
-    sqrt_price: '300139815045826265570',
-    liquidity_net: '109898216',
-    liquidity_gross: '109898216',
-    fee_growth_outside_a: '27383926692698',
-    fee_growth_outside_b: '4450780487409241',
-    rewarders_growth_outside: [],
+      "index": -37940,
+      "sqrt_price": "2767606108039881620",
+      "liquidity_net": "60155568285",
+      "liquidity_gross": "60155568285",
+      "fee_growth_outside_a": "21235955800934414",
+      "fee_growth_outside_b": "424794219427463",
+      "rewarders_growth_outside": [
+          225489888127862050
+      ]
   },
   {
-    index: 56030,
-    sqrt_price: '303763007347561160921',
-    liquidity_net: '22891916158',
-    liquidity_gross: '22891916158',
-    fee_growth_outside_a: '41143420919915',
-    fee_growth_outside_b: '9773885113263619',
-    rewarders_growth_outside: [],
+      "index": -37740,
+      "sqrt_price": "2795419614231863672",
+      "liquidity_net": "9742196966",
+      "liquidity_gross": "9742196966",
+      "fee_growth_outside_a": "21235955800934414",
+      "fee_growth_outside_b": "424794219427463",
+      "rewarders_growth_outside": [
+          225425239826209820
+      ]
   },
   {
-    index: 56410,
-    sqrt_price: '309589388527016280145',
-    liquidity_net: '-109898216',
-    liquidity_gross: '109898216',
-    fee_growth_outside_a: '38491718521367',
-    fee_growth_outside_b: '9363132182533181',
-    rewarders_growth_outside: [],
+      "index": -37100,
+      "sqrt_price": "2886315068567727202",
+      "liquidity_net": "-9742196966",
+      "liquidity_gross": "9742196966",
+      "fee_growth_outside_a": "0",
+      "fee_growth_outside_b": "0",
+      "rewarders_growth_outside": [
+          0
+      ]
   },
   {
-    index: 56650,
-    sqrt_price: '313326653071670690763',
-    liquidity_net: '-22891916158',
-    liquidity_gross: '22891916158',
-    fee_growth_outside_a: '0',
-    fee_growth_outside_b: '0',
-    rewarders_growth_outside: [],
+      "index": -36900,
+      "sqrt_price": "2915321559700410725",
+      "liquidity_net": "-60155568285",
+      "liquidity_gross": "60155568285",
+      "fee_growth_outside_a": "0",
+      "fee_growth_outside_b": "0",
+      "rewarders_growth_outside": [
+          0
+      ]
   },
   {
-    index: 57570,
-    sqrt_price: '328075566177759495153',
-    liquidity_net: '-361741458',
-    liquidity_gross: '361741458',
-    fee_growth_outside_a: '0',
-    fee_growth_outside_b: '0',
-    rewarders_growth_outside: [],
+      "index": -36880,
+      "sqrt_price": "2918238193504712818",
+      "liquidity_net": "974649592",
+      "liquidity_gross": "974649592",
+      "fee_growth_outside_a": "5433310106311695",
+      "fee_growth_outside_b": "102794382090217",
+      "rewarders_growth_outside": [
+          41621905147691010
+      ]
   },
+  {
+      "index": -36240,
+      "sqrt_price": "3013127198757603338",
+      "liquidity_net": "-974649592",
+      "liquidity_gross": "974649592",
+      "fee_growth_outside_a": "0",
+      "fee_growth_outside_b": "0",
+      "rewarders_growth_outside": []
+  },
+  {
+      "index": 443620,
+      "sqrt_price": "79163320688686837543952944461",
+      "liquidity_net": "-76997091",
+      "liquidity_gross": "76997091",
+      "fee_growth_outside_a": "0",
+      "fee_growth_outside_b": "0",
+      "rewarders_growth_outside": [
+          0
+      ]
+  }
 ]
-
-const POOL = {
-  pool_address: '0x4e13b5ed11fac6105995b49fc6493d9a783fe6f07472686e622a82ee31b5de12',
-  fee_rate: 500,
-  liquidity: 361741458,
-  tick_spacing: '10',
-  current_sqrt_price: '311889845121090580838',
-  current_tick_index: 56558,
-  coin_type_a: '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
-  coin_type_b: '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI',
-  coin_amount_a: 7265294,
-  coin_amount_b: 10453069937,
-  tick_manager: '0x89b5f9e0689b01a36b613d2c4f1fdddc218240a27b26fe69add1feb8fae9ff0a',
-  rewarders: [],
-  stats: {
-    vol: 13.32957889,
-    apr: 5.790460912198376,
-    fee: 0.0066647928,
-    liquidity: 42.01132533120638,
-  },
-}
 
 async function main() {
   const privateKey = process.env.SUI_WALLET_PRIVATEKEY || ''
@@ -101,7 +112,7 @@ async function main() {
   }
 
   const wallet = keypair.getPublicKey().toSuiAddress()
-  const sdk = initFerraSDK({ network: 'beta', wallet })
+  const sdk = initFerraSDK({ network: 'mainnet', wallet })
 
   sdk.senderAddress = wallet
   const tick_spacing = 2
@@ -111,36 +122,47 @@ async function main() {
   const coin_type_a = `0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::ferra::FERRA`
   const coin_type_b = `0x2::sui::SUI`
 
-  const pool = await sdk.Pool.getPool("0x893582e44c693996161497a779ac0258e9f13d9a11f9fac32f5dcc4c4c2af6d2");
+  const pool = await sdk.Pool.getPool("0x05d77d00b2452b4dbc4815ed27cc19043cfc509199c7df015458eb7192b6b64f");
 
-  // const ticks = TICKS.map(
-  //   (v) =>
-  //     ({
-  //       sqrtPrice: new BN(v.sqrt_price),
-  //       feeGrowthOutsideA: new BN(v.fee_growth_outside_a),
-  //       feeGrowthOutsideB: new BN(v.fee_growth_outside_b),
-  //       index: v.index,
-  //       liquidityGross: new BN(v.liquidity_gross),
-  //       liquidityNet: new BN(v.liquidity_net),
-  //       rewardersGrowthOutside: [] as BN[],
-  //     }) as TickData
-  // )
+  const ticks = TICKS.map(
+    (v) =>
+      ({
+        sqrtPrice: new BN(v.sqrt_price),
+        feeGrowthOutsideA: new BN(v.fee_growth_outside_a),
+        feeGrowthOutsideB: new BN(v.fee_growth_outside_b),
+        index: v.index,
+        liquidityGross: new BN(v.liquidity_gross),
+        liquidityNet: new BN(v.liquidity_net),
+        rewardersGrowthOutside: [] as BN[],
+      }) as TickData
+  )
 
-  // const swapResults = sdk.Swap.calculateRates({
-  //   byAmountIn: true,
-  //   a2b: false,
-  //   amount: new BN(3_000_000_000n),
-  //   currentPool: pool!,
-  //   decimalsA: 6,
-  //   decimalsB: 9,
-  //   swapTicks: ticks,
-  // })
+  const swapResults = sdk.Swap.calculateRates({
+    byAmountIn: true,
+    a2b: true,
+    amount: new BN(1_00_000_000n),
+    currentPool: pool!,
+    decimalsA: 9,
+    decimalsB: 9,
+    swapTicks: ticks,
+  })
 
-  // if (swapResults) {
-  //   // swapResults.estimatedAmountOut = swapResults.estimatedAmountOut.toNumber()
-  //   console.log('swapResults', swapResults)
-  //   return
-  // }
+  if (swapResults) {
+    // swapResults.estimatedAmountOut = swapResults.estimatedAmountOut.toNumber()
+    console.log('swapResults', {
+      estimatedAmountIn: swapResults.estimatedAmountIn.toString(),
+      estimatedAmountOut: swapResults.estimatedAmountOut.toString(),
+      estimatedEndSqrtPrice: swapResults.estimatedEndSqrtPrice.toString(),
+      estimatedFeeAmount: swapResults.estimatedFeeAmount.toString(),
+      isExceed: swapResults.isExceed,
+      extraComputeLimit: swapResults.extraComputeLimit,
+      amount: swapResults.amount.toString(),
+      aToB: swapResults.aToB,
+      byAmountIn: swapResults.byAmountIn,
+      priceImpactPct: swapResults.priceImpactPct
+    })
+    return
+  }
 
   const tx = new Transaction()
   tx.setSender(wallet)

@@ -731,8 +731,6 @@ export function formatBins(
     reserve_y: string
     price: string
     total_supply: string
-    fee_x: string
-    fee_y: string
     fee_growth_x: string
     fee_growth_y: string
   }[]

@@ -16,6 +16,8 @@ export type PrepareSwapParams = {
 export type CalculateSwapParams = {
   amount: bigint;
   xtoy?: boolean;
+  decimalsA: number;
+  decimalsB: number;
   swapBins: LbPairBinData[]
 }
 

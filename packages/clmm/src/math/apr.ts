@@ -7,6 +7,7 @@ const D365 = new BN(365)
 const H24 = new BN(24)
 const S3600 = new BN(3600)
 const B05 = new BN(0.5)
+const MAX_BASIS_POINT = 10000
 
 export function estPoolAPR(preBlockReward: BN, rewardPrice: BN, totalTradingFee: BN, totalLiquidityValue: BN): BN {
   const annualRate = D365.mul(H24).mul(S3600).mul(B05)
@@ -110,7 +111,7 @@ export function estPositionAPRWithDeltaMethod(
 
   const feeAPR = deltaLiquidity.eq(new Decimal(0))
     ? new Decimal(0)
-    : new Decimal(feeRate / 10000)
+    : new Decimal(feeRate).div(MAX_BASIS_POINT)
         .mul(swapVolume)
         .mul(new Decimal(deltaLiquidity.toString()).div(new Decimal(poolLiquidity.toString()).add(new Decimal(deltaLiquidity.toString()))))
         .div(posValidTVL)

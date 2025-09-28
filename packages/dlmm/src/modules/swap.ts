@@ -59,13 +59,26 @@ export class SwapModule implements IModule {
    * ```
    */
   public calculateRates(pair: LBPair, params: CalculateSwapParams): CalculateRatesResult {
-    const [amountInRemain, amountOut, feeAmount, newBinId, isMaxLoop] = SwapUtils.getSwapOut(pair, params.swapBins, params.amount, params.xtoy ?? true)
-    const amountInCost = params.amount - amountInRemain;
+    const [amountInRemain, amountOut, feeAmount, newBinId, isMaxLoop] = SwapUtils.getSwapOut(
+      pair,
+      params.swapBins,
+      params.amount,
+      params.xtoy ?? true
+    )
+    const amountInCost = params.amount - amountInRemain
     const currentBinId = pair.parameters.active_id
 
-    const currentPrice = BinMath.getPriceFromId(currentBinId, Number(pair.binStep), SUI_DECIMALS, SUI_DECIMALS)
-    const executionPrice = Decimal(amountOut.toString()).div(amountInCost.toString())
-    const priceImpactPercentage = executionPrice.sub(currentPrice).div(currentPrice).mul(100)
+    let currentPrice = BinMath.getPriceFromId(currentBinId, Number(pair.binStep), params.decimalsA, params.decimalsB)
+    let decimalAdjustment = Math.pow(10, params.decimalsA - params.decimalsB)
+
+    if (params.xtoy === false) {
+      currentPrice = currentPrice !== 0 ? 1 / currentPrice : 0
+      decimalAdjustment = Math.pow(10, params.decimalsB - params.decimalsA)
+    }
+
+    const executionPrice = Decimal(amountOut.toString()).div(amountInCost.toString()).mul(decimalAdjustment)
+    
+    const priceImpactPercentage = executionPrice.sub(currentPrice).div(currentPrice).mul(100).toNumber()
 
     return {
       amount: params.amount,
@@ -76,7 +89,7 @@ export class SwapModule implements IModule {
       extraComputeLimit: 0,
       isExceed: amountInRemain > 0 || isMaxLoop,
       isMaxLoop,
-      priceImpactPct: priceImpactPercentage.toNumber(),
+      priceImpactPct: isNaN(priceImpactPercentage) ? 0 : priceImpactPercentage,
       xToY: params.xtoy ?? true,
     }
   }

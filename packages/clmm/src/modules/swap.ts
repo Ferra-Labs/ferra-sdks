@@ -289,13 +289,23 @@ export class SwapModule implements IModule {
       hasExceededLimits = true
     }
 
-    const initialPrice = TickMath.sqrtPriceX64ToPrice(
+    let initialPrice = TickMath.sqrtPriceX64ToPrice(
       poolData.currentSqrtPrice,
       calculationParams.decimalsA,
       calculationParams.decimalsB
     ).toNumber()
-    const executionPrice = new Decimal(swapCalculationResult.amountOut.toNumber()).div(swapCalculationResult.amountIn.toNumber()).toNumber()
+    let decimalAdjustment = Math.pow(10, calculationParams.decimalsA - calculationParams.decimalsB)
 
+    if (calculationParams.a2b === false) {
+      initialPrice = 1 / initialPrice
+      decimalAdjustment = Math.pow(10, calculationParams.decimalsB - calculationParams.decimalsA)
+    }
+
+    const executionPrice = new Decimal(swapCalculationResult.amountOut.toNumber())
+      .div(swapCalculationResult.amountIn.toNumber())
+      .mul(decimalAdjustment)
+      .toNumber()
+    
     const priceImpactPercentage = ((executionPrice - initialPrice) / initialPrice) * 100
 
     return {
