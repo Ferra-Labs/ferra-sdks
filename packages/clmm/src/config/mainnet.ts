@@ -3,9 +3,9 @@ import { checkValidSuiAddress } from '../utils'
 
 const SDKConfig = {
   clmmConfig: {
-    pools_id: '0xadae2faa029b3b0be430e3b1b787ac0d528f3b3be9d32c61530fabaa6f171431',
-    global_config_id: '0x2d1269e1ade81a5189b625ee87c9425bc29249d21d273245269eb07e67dc6965',
-    global_rewarder_vault_id: '0xbe8d4702ed1f4bf2ad8101ee68d785538fb6d50e2f187bbafd134d1e2c67aa89'
+    pools_id: '0x0eed6ad3e892da66858251e4f5f2ae7b64081894cb5c52e9ff0f575f7e4b32a1',
+    global_config_id: '0x690dca273b863ad44ab125d34c4538ac4eb16e22f66e3720a2de9608e1552a68',
+    global_rewarder_vault_id: '0x2a13d3b3bbc00faf59fd9a4cf961e568529db0ff2c2edea13e28ce3bc3da32e1'
   }
 }
 
@@ -16,13 +16,13 @@ export const clmmMainnet: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   clmm_pool: {
-    package_id: '0x8e1144ad9fbc388c61ac30d74ebef4eb741d213e3a086da48124256290233723',
-    published_at: '0x8e1144ad9fbc388c61ac30d74ebef4eb741d213e3a086da48124256290233723',
+    package_id: '0x45a137f238cc1205e220a4997fc0a8312427064cfae441f8c6ca12bf712f6232',
+    published_at: '0x45a137f238cc1205e220a4997fc0a8312427064cfae441f8c6ca12bf712f6232',
     config: SDKConfig.clmmConfig,
   },
   integrate: {
-    package_id: '0x46f0964200ea12c1bd3f7280cb49f55c11e4c0df8ae2a40f71253a3a19859a17',
-    published_at: '0x46f0964200ea12c1bd3f7280cb49f55c11e4c0df8ae2a40f71253a3a19859a17',
+    package_id: '0x103a7d00f1f49f2289740f41fabf5e3263e2c43db774a871baf5429cea4cef40',
+    published_at: '0x103a7d00f1f49f2289740f41fabf5e3263e2c43db774a871baf5429cea4cef40',
   },
   swapCountUrl: 'https://api.ferra.ag/clmm/swap/pools'
 }
