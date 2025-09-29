@@ -46,8 +46,6 @@ export interface LbPairBinData {
   reserve_y: bigint
   price: bigint
   total_supply: bigint
-  fee_x: bigint
-  fee_y: bigint
   fee_growth_x: bigint
   fee_growth_y: bigint
 }
@@ -186,33 +184,26 @@ export interface PairInfo {
   name: string
   value: {
     fields: {
-      next: string
-      prev: string
-      value: {
+      bin_step: number
+      coin_type_a: {
         fields: {
-          bin_step: number
-          coin_type_a: {
-            fields: {
-              name: string
-            }
-            type: string
-          }
-          coin_type_b: {
-            fields: {
-              name: string
-            }
-            type: string
-          }
-          ignored_for_routing: boolean
-          pair_id: string
-          pair_key: string
+          name: string
         }
         type: string
       }
+      coin_type_b: {
+        fields: {
+          name: string
+        }
+        type: string
+      }
+      pair_id: string
+      pair_key: string
     }
     type: string
   }
 }
+
 
 export interface PairBin {
   reserve_x: string
@@ -257,7 +248,7 @@ export type PairParameters = {
 
 // ===== Utility Types =====
 export type AddLiquidityParams = {
-  deltaIds: number[]
+  ids: number[]
   distributionX: bigint[]
   distributionY: bigint[]
   amountX: bigint
@@ -285,7 +276,7 @@ export interface ClosePositionParams {
 export interface AddLiquidityTxParams {
   amountX: TransactionResult[number] | ((tx: Transaction) => TransactionResult)
   amountY: TransactionResult[number] | ((tx: Transaction) => TransactionResult)
-  deltaIds: number[]
+  ids: number[]
   distributionX: bigint[]
   distributionY: bigint[]
   minAmountX?: bigint

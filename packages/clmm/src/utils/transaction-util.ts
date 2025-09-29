@@ -23,6 +23,7 @@ import SDK, {
   normalizeCoinType,
   Percentage,
   Pool,
+  RemoveLiquidityAndClaimRewardsParams,
   SdkOptions,
   SwapParams,
   SwapUtils,
@@ -59,6 +60,17 @@ type CoinInputInterval = {
   amountSecond: bigint
   amountFirst: bigint
 }
+
+type TxCoin =
+  | {
+      $kind: 'NestedResult'
+      NestedResult: [number, number]
+    }
+  | ((tx: Transaction) => {
+      $kind: 'NestedResult'
+      NestedResult: [number, number]
+    })
+  | ((tx: Transaction) => TransactionResult)
 
 /**
  * Calculates the reverse slippage amount for liquidity operations
@@ -159,6 +171,72 @@ export class TransactionUtil {
 
     transaction = sdk.Rewarder.createCollectRewarderPaylod(rewarderParams, transaction, rewarderCoinInputs)
     return transaction
+  }
+
+  static createRemoveLiquidityPayload(
+    params: RemoveLiquidityAndClaimRewardsParams,
+    sdkOptions: SdkOptions,
+    tx: Transaction
+  ): [coinA: TxCoin, coinB: TxCoin] {
+    const coinTypeA = params.coinTypeA
+    const coinTypeB = params.coinTypeB
+
+    const { published_at, config } = sdkOptions.clmm_pool
+
+    if (!config) {
+      throw new Error('No config found in sdk options')
+    }
+
+    const { global_config_id } = config
+    const [v3, v2] = tx.moveCall({
+      target: `${published_at}::pool::remove_liquidity`,
+      arguments: [tx.object(global_config_id), tx.object(params.pool_id), tx.object(params.pos_id), tx.pure.u128(params.delta_liquidity), tx.object(CLOCK_ADDRESS)],
+      typeArguments: [coinTypeA, coinTypeB],
+    })
+
+    const [coinA] = this.balanceToCoinTx(v3, coinTypeA, tx);
+    const [coinB] = this.balanceToCoinTx(v2, coinTypeB, tx);
+
+    this.checkCoinThresholdInternal(coinA, params.min_amount_a, coinTypeA, sdkOptions, tx)
+    this.checkCoinThresholdInternal(coinB, params.min_amount_b, coinTypeB, sdkOptions, tx)
+
+    const [v4, v5] = tx.moveCall({
+      target: `${published_at}::pool::collect_fee`,
+      arguments: [tx.object(global_config_id), tx.object(params.pool_id), tx.object(params.pos_id), tx.pure.bool(false)],
+      typeArguments: [coinTypeA, coinTypeB],
+    })
+
+    const [feeA] = this.balanceToCoinTx(v4, coinTypeA, tx);
+    const [feeB] = this.balanceToCoinTx(v5, coinTypeB, tx);
+
+    this.joinCoinTx(coinA, feeA, coinTypeA, tx)
+    this.joinCoinTx(coinB, feeB, coinTypeB, tx)
+
+    return [coinA, coinB]
+  }
+
+  static joinBalanceTx(currentBalance: TxCoin, targetBalance: TxCoin, coinType: string, transaction: Transaction) {
+    transaction.moveCall({
+      target: '0x2::balance::join',
+      arguments: [currentBalance, targetBalance],
+      typeArguments: [coinType],
+    })
+  }
+
+  static joinCoinTx(currentCoin: TxCoin, targetCoin: TxCoin, coinType: string, transaction: Transaction) {
+    transaction.moveCall({
+      target: '0x2::coin::join',
+      arguments: [currentCoin, targetCoin],
+      typeArguments: [coinType],
+    })
+  }
+
+  static balanceToCoinTx(balance: TxCoin, coinType: string, tx: Transaction) {
+    return tx.moveCall({
+      target: '0x2::coin::from_balance',
+      arguments: [balance],
+      typeArguments: [coinType],
+    })
   }
 
   /**
@@ -304,7 +382,11 @@ export class TransactionUtil {
           false,
           true
         )
-        liquidityParams = TransactionUtil.fixAddLiquidityFixTokenParams(liquidityParams, gasEstimationConfig.slippage, gasEstimationConfig.curSqrtPrice)
+        liquidityParams = TransactionUtil.fixAddLiquidityFixTokenParams(
+          liquidityParams,
+          gasEstimationConfig.slippage,
+          gasEstimationConfig.curSqrtPrice
+        )
 
         transaction = await TransactionUtil.buildAddLiquidityFixTokenArgs(newTx, sdk, allCoins, liquidityParams, coinAInputs, coinBInputs)
         return transaction
@@ -428,7 +510,11 @@ export class TransactionUtil {
    * @param currentSqrtPrice - Current pool sqrt price
    * @returns Adjusted liquidity parameters
    */
-  static fixAddLiquidityFixTokenParams(liquidityParams: AddLiquidityFixTokenParams, slippageRate: number, currentSqrtPrice: BN): AddLiquidityFixTokenParams {
+  static fixAddLiquidityFixTokenParams(
+    liquidityParams: AddLiquidityFixTokenParams,
+    slippageRate: number,
+    currentSqrtPrice: BN
+  ): AddLiquidityFixTokenParams {
     const fixedCoinAmount = liquidityParams.fix_amount_a ? liquidityParams.amount_a : liquidityParams.amount_b
     const liquidityCalculation = ClmmPoolUtil.estLiquidityAndcoinAmountFromOneAmounts(
       Number(liquidityParams.tick_lower),
@@ -490,7 +576,6 @@ export class TransactionUtil {
           coinBInputs.targetCoin,
           transaction.pure.u64(liquidityParams.amount_a),
           transaction.pure.u64(liquidityParams.amount_b),
-          transaction.pure.u64(liquidityParams.lock_until ?? 0),
           transaction.pure.bool(liquidityParams.fix_amount_a),
           transaction.object(CLOCK_ADDRESS),
         ]
@@ -641,8 +726,8 @@ export class TransactionUtil {
         ? 'swap_a2b_with_partner'
         : 'swap_b2a_with_partner'
       : swapParams.a2b
-      ? 'swap_a2b'
-      : 'swap_b2a'
+        ? 'swap_a2b'
+        : 'swap_b2a'
 
     const transactionArgs = hasSwapPartner
       ? [
@@ -1049,7 +1134,9 @@ export class TransactionUtil {
     return {
       targetCoin: transaction.makeMoveVec({ elements: coinObjectIds.map((id) => transaction.object(id)) }),
       remainCoins: selectedCoinsResult.remainCoins,
-      tragetCoinAmount: selectedCoinsResult.amountArray.reduce((accumulator, currentValue) => Number(accumulator) + Number(currentValue), 0).toString(),
+      tragetCoinAmount: selectedCoinsResult.amountArray
+        .reduce((accumulator, currentValue) => Number(accumulator) + Number(currentValue), 0)
+        .toString(),
       isMintZeroCoin: false,
     }
   }
@@ -1111,14 +1198,18 @@ export class TransactionUtil {
    */
   private static buildSplitTargetCoin(transaction: Transaction, amount: bigint, targetCoinAssets: CoinAsset[], fixAmount: boolean) {
     const coinSelection = CoinAssist.selectCoinObjectIdGreaterThanOrEqual(targetCoinAssets, amount)
-    const totalSelectedAmount = coinSelection.amountArray.reduce((accumulator, currentValue) => Number(accumulator) + Number(currentValue), 0).toString()
+    const totalSelectedAmount = coinSelection.amountArray
+      .reduce((accumulator, currentValue) => Number(accumulator) + Number(currentValue), 0)
+      .toString()
     const coinObjectIds = coinSelection.objectArray
 
     const [primaryCoinId, ...mergeCoins] = coinObjectIds
     const primaryCoinObject = transaction.object(primaryCoinId)
 
     let targetCoin: any = primaryCoinObject
-    const targetCoinAmount = coinSelection.amountArray.reduce((accumulator, currentValue) => Number(accumulator) + Number(currentValue), 0).toString()
+    const targetCoinAmount = coinSelection.amountArray
+      .reduce((accumulator, currentValue) => Number(accumulator) + Number(currentValue), 0)
+      .toString()
     let originalSplitedCoin
 
     if (mergeCoins.length > 0) {
@@ -1177,7 +1268,12 @@ export class TransactionUtil {
    * @param buildVector - Whether to build as vector
    * @returns Built zero coin result
    */
-  private static buildZeroValueCoin(availableCoins: CoinAsset[], transaction: Transaction, coinType: string, buildVector = true): BuildCoinResult {
+  private static buildZeroValueCoin(
+    availableCoins: CoinAsset[],
+    transaction: Transaction,
+    coinType: string,
+    buildVector = true
+  ): BuildCoinResult {
     const zeroCoin = TransactionUtil.callMintZeroValueCoin(transaction, coinType)
     let targetCoin: any
 
@@ -1217,7 +1313,15 @@ export class TransactionUtil {
 
     if (amounts.amountFirst === BigInt(0)) {
       if (targetCoinAssets.length > 0) {
-        return TransactionUtil.buildCoin(transaction, [...availableCoins], [...targetCoinAssets], amounts.amountFirst, coinType, buildVector, fixAmount)
+        return TransactionUtil.buildCoin(
+          transaction,
+          [...availableCoins],
+          [...targetCoinAssets],
+          amounts.amountFirst,
+          coinType,
+          buildVector,
+          fixAmount
+        )
       }
       return TransactionUtil.buildZeroValueCoin(availableCoins, transaction, coinType, buildVector)
     }
@@ -1225,7 +1329,15 @@ export class TransactionUtil {
     const totalAvailableAmount = CoinAssist.calculateTotalBalance(targetCoinAssets)
 
     if (totalAvailableAmount >= amounts.amountFirst) {
-      return TransactionUtil.buildCoin(transaction, [...availableCoins], [...targetCoinAssets], amounts.amountFirst, coinType, buildVector, fixAmount)
+      return TransactionUtil.buildCoin(
+        transaction,
+        [...availableCoins],
+        [...targetCoinAssets],
+        amounts.amountFirst,
+        coinType,
+        buildVector,
+        fixAmount
+      )
     }
 
     if (totalAvailableAmount < amounts.amountSecond) {
@@ -1235,7 +1347,15 @@ export class TransactionUtil {
       )
     }
 
-    return TransactionUtil.buildCoin(transaction, [...availableCoins], [...targetCoinAssets], amounts.amountSecond, coinType, buildVector, fixAmount)
+    return TransactionUtil.buildCoin(
+      transaction,
+      [...availableCoins],
+      [...targetCoinAssets],
+      amounts.amountSecond,
+      coinType,
+      buildVector,
+      fixAmount
+    )
   }
 
   /**
@@ -1553,6 +1673,29 @@ export class TransactionUtil {
   }
 
   /**
+   * Validates that output coin meets minimum threshold requirements
+   * @param sdk - SDK instance
+   * @param isAmountIn - Whether amount is input
+   * @param transaction - Transaction to modify
+   * @param outputCoin - Coin to check
+   * @param minimumAmount - Minimum required amount
+   * @param coinType - Type of coin being checked
+   */
+  static checkCoinThresholdInternal(
+    coin: TransactionObjectArgument,
+    minimumAmount: bigint,
+    coinType: string,
+    sdkOptions: SdkOptions,
+    transaction: Transaction
+  ) {
+    transaction.moveCall({
+      target: `${sdkOptions.integrate.published_at}::${ClmmIntegrateRouterModule}::check_coin_threshold`,
+      typeArguments: [coinType],
+      arguments: [coin, transaction.pure.u64(minimumAmount)],
+    })
+  }
+
+  /**
    * Builds CLMM base path transaction for individual swap steps
    * @param sdk - SDK instance
    * @param basePath - Base path configuration
@@ -1686,7 +1829,13 @@ export class TransactionUtil {
    * @param coinType - Type of coin
    * @param recipient - Optional recipient address
    */
-  static buildTransferCoin(sdk: SDK, transaction: Transaction, coinToTransfer: TransactionObjectArgument, coinType: string, recipient?: string) {
+  static buildTransferCoin(
+    sdk: SDK,
+    transaction: Transaction,
+    coinToTransfer: TransactionObjectArgument,
+    coinType: string,
+    recipient?: string
+  ) {
     if (recipient != null) {
       transaction.transferObjects([coinToTransfer], transaction.pure.address(recipient))
     } else {
@@ -1707,7 +1856,7 @@ export class TransactionUtil {
   ) {
     const {
       integrate: { package_id },
-      clmm_pool: { config }
+      clmm_pool: { config },
     } = sdkOptions
 
     const { global_config_id } = config ?? {}

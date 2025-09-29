@@ -1,13 +1,13 @@
-name: Phoenix SDKs
+name: Ferra SDKs
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "mainnet", "dev", "beta" ]
   pull_request:
-    branches: [ "main", "dev" ]
+    branches: [ "mainnet", "dev", "beta" ]
 
 env:
-  SCOPE: phoenix0x02
+  SCOPE: ferra-labs
 
 jobs:
   build-and-publish:
@@ -35,57 +35,123 @@ jobs:
         run: pnpm build
 
       # Option 1: Publish to GitHub Packages
-      - name: Configure npm for GitHub Packages
-        if: github.ref == 'refs/heads/main'
-        run: |
-          npm config set @${{ env.SCOPE }}:registry https://npm.pkg.github.com
-          npm config set //npm.pkg.github.com/:_authToken ${{ secrets.ACCESS_TOKEN }}
+      # - name: Configure npm for GitHub Packages
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     npm config set @${{ env.SCOPE }}:registry https://npm.pkg.github.com
+      #     npm config set //npm.pkg.github.com/:_authToken ${{ secrets.ACCESS_TOKEN }}
 
       # - name: Publish CLMM SDK to GitHub Packages
+      #   id: publish-clmm
       #   if: github.ref == 'refs/heads/main'
+      #   continue-on-error: true
       #   run: |
       #     cd packages/clmm
       #     npm publish --registry https://npm.pkg.github.com
+      #     echo "CLMM_PUBLISH_STATUS=$?" >> $GITHUB_ENV
       #   env:
       #     NODE_AUTH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
-      - name: Publish DLMM SDK to GitHub Packages
-        if: github.ref == 'refs/heads/main'
-        run: |
-          cd packages/dlmm
-          npm publish --registry https://npm.pkg.github.com
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      # - name: Publish DLMM SDK to GitHub Packages
+      #   id: publish-dlmm
+      #   if: github.ref == 'refs/heads/main'
+      #   continue-on-error: true
+      #   run: |
+      #     cd packages/dlmm
+      #     npm publish --registry https://npm.pkg.github.com
+      #     echo "DLMM_PUBLISH_STATUS=$?" >> $GITHUB_ENV
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
       # - name: Publish Aggregator SDK to GitHub Packages
+      #   id: publish-aggregator
       #   if: github.ref == 'refs/heads/main'
+      #   continue-on-error: true
       #   run: |
       #     cd packages/aggregator
       #     npm publish --registry https://npm.pkg.github.com
+      #     echo "AGGREGATOR_PUBLISH_STATUS=$?" >> $GITHUB_ENV
       #   env:
       #     NODE_AUTH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
 
+      # Report publishing status
+      # - name: Report Publishing Status
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     echo "## Publishing Status Report" >> $GITHUB_STEP_SUMMARY
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+
+      #     # Check CLMM status
+      #     if [[ "${{ steps.publish-clmm.outcome }}" == "success" ]]; then
+      #       echo "✅ CLMM SDK: Published successfully" >> $GITHUB_STEP_SUMMARY
+      #     else
+      #       echo "❌ CLMM SDK: Failed to publish" >> $GITHUB_STEP_SUMMARY
+      #     fi
+
+      #     # Check DLMM status
+      #     if [[ "${{ steps.publish-dlmm.outcome }}" == "success" ]]; then
+      #       echo "✅ DLMM SDK: Published successfully" >> $GITHUB_STEP_SUMMARY
+      #     else
+      #       echo "❌ DLMM SDK: Failed to publish" >> $GITHUB_STEP_SUMMARY
+      #     fi
+
+      #     # Check Aggregator status
+      #     if [[ "${{ steps.publish-aggregator.outcome }}" == "success" ]]; then
+      #       echo "✅ Aggregator SDK: Published successfully" >> $GITHUB_STEP_SUMMARY
+      #     else
+      #       echo "❌ Aggregator SDK: Failed to publish" >> $GITHUB_STEP_SUMMARY
+      #     fi
+
+      #     # Overall status
+      #     echo "" >> $GITHUB_STEP_SUMMARY
+      #     if [[ "${{ steps.publish-clmm.outcome }}" == "success" ]] && \
+      #        [[ "${{ steps.publish-dlmm.outcome }}" == "success" ]] && \
+      #        [[ "${{ steps.publish-aggregator.outcome }}" == "success" ]]; then
+      #       echo "### ✅ All packages published successfully!" >> $GITHUB_STEP_SUMMARY
+      #     else
+      #       echo "### ⚠️ Some packages failed to publish. Check the logs for details." >> $GITHUB_STEP_SUMMARY
+      #     fi
+
+
       # Alternative Option 2: Publish to npmjs.org (uncomment if needed)
-      # - name: Configure npm for npmjs
-      #   if: github.ref == 'refs/heads/main'
-      #   run: |
-      #     npm config set registry https://registry.npmjs.org/
-      #     npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+      - name: Configure npm for npmjs
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
 
-      # - name: Publish CLMM SDK to npmjs
-      #   if: github.ref == 'refs/heads/main'
-      #   run: |
-      #     cd packages/clmm
-      #     npm version patch --no-git-tag-version
-      #     npm publish --access public
-      #   env:
-      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish CLMM SDK to npmjs
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
+        run: |
+          cd packages/clmm
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            npm publish --access public --tag latest
+          else
+            npm publish --access public --tag beta
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # - name: Publish DLMM SDK to npmjs
-      #   if: github.ref == 'refs/heads/main'
-      #   run: |
-      #     cd packages/dlmm
-      #     npm version patch --no-git-tag-version
-      #     npm publish --access public
-      #   env:
-      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish DLMM SDK to npmjs
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
+        run: |
+          cd packages/dlmm
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            npm publish --access public --tag latest
+          else
+            npm publish --access public --tag beta
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish Aggregator SDK to npmjs
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
+        run: |
+          cd packages/aggregator
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            npm publish --access public --tag latest
+          else
+            npm publish --access public --tag beta
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

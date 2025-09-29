@@ -1,6 +1,6 @@
 {
-  "name": "@phoenix0x02/clmm",
-  "version": "1.2.30",
+  "name": "@ferra-labs/clmm",
+  "version": "0.1.12-pre-release",
   "private": false,
   "description": "SDK for concentrated liquidity market maker",
   "main": "dist/index.js",
@@ -37,11 +37,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/phoenix0x02/ferra-sdks.git",
+    "url": "https://github.com/Ferra-Labs/ferra-sdks.git",
     "directory": "packages/clmm"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "keywords": [
     "defi",

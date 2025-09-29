@@ -1,11 +1,11 @@
 import FerraDlmmSDK, { SdkOptions } from '../main'
-import { checkInvalidSuiAddress } from '../utils'
+import { checkValidSuiAddress } from '../utils'
 
 const SDKConfig = {
   dlmmConfig: {
-    global_config: '0xd07fcd72e29e799468d6ea4498980df6f1e6bfba2a1640f81ae2a4d90323e9b7',
-    pairs_id: '0x926a08958712d4728d1b7697dc52c219e4c23499cbed769de382a1a335e4e17a',
-    reward_vault: '0x54e4ff0ada41a1b3a1f685dbd03f25b99e6dae1b76c35a0e3d60b83749bdb0ca',
+    global_config: '0x5c9dacf5a678ea15b8569d65960330307e23d429289ca380e665b1aa175ebeca',
+    pairs_id: '0x71ae968a99fd9a0b6a46519d7875fcc454c9811a3a6da8114382e6d926e78a04',
+    reward_vault: '0xd68c56a1610953b0a81c48ad26e463c6c51e50ddcc13e5e4121fe70ee75c1bf7',
   }
 }
 
@@ -16,15 +16,15 @@ export const dlmmMainnet: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   dlmm_pool: {
-    package_id: '0x69b4880637bd4483f983209d58643927ee87e07f51c7a1d6a3ac37eff627d4a3',
-    published_at: '0x69b4880637bd4483f983209d58643927ee87e07f51c7a1d6a3ac37eff627d4a3',
+    package_id: '0x5a5c1d10e4782dbbdec3eb8327ede04bd078b294b97cfdba447b11b846b383ac',
+    published_at: '0x5a5c1d10e4782dbbdec3eb8327ede04bd078b294b97cfdba447b11b846b383ac',
     config: SDKConfig.dlmmConfig,
   },
   integrate: {
     package_id: '',
     published_at: '',
   },
-  dlmmApiUrl: "https://api-beta.ferra.xyz/dlmm/pair/"
+  dlmmApiUrl: "https://api.ferra.ag/dlmm/pair/"
 }
 
 /**
@@ -41,7 +41,7 @@ export function initMainnetSDK(fullNodeUrl?: string, wallet?: string): FerraDlmm
     dlmmMainnet.fullRpcUrl = fullNodeUrl
   }
   const sdk = new FerraDlmmSDK(dlmmMainnet)
-  if (wallet && checkInvalidSuiAddress(wallet)) {
+  if (wallet && checkValidSuiAddress(wallet)) {
     sdk.senderAddress = wallet
   }
   return sdk

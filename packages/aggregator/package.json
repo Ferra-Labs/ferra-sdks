@@ -1,6 +1,6 @@
 {
-  "name": "@phoenix0x02/aggregator",
-  "version": "0.0.27",
+  "name": "@ferra-labs/aggregator",
+  "version": "0.1.12-pre-release",
   "description": "Aggregator SDK",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -30,11 +30,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/phoenix0x02/ferra-sdks.git",
+    "url": "https://github.com/Ferra-Labs/ferra-sdks.git",
     "directory": "packages/aggregator"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "keywords": [
     "defi",
@@ -44,7 +45,7 @@
     "amm",
     "discrete-liquidity"
   ],
-  "author": "My Organization",
+  "author": "Ferra Labs",
   "license": "MIT",
   "engines": {
     "node": ">=16.0.0",
@@ -100,7 +101,7 @@
     "uuid": "^9.0.0"
   },
   "bugs": {
-    "url": "https://github.com/phoenix0x02/ferra-sdks/issues"
+    "url": "https://github.com/Ferra-Labs/ferra-sdks/issues"
   },
-  "homepage": "https://github.com/phoenix0x02/ferra-sdks/tree/main/packages/dlmm#readme"
+  "homepage": "https://github.com/Ferra-Labs/ferra-sdks/blob/main/packages/aggregator/README.md"
 }

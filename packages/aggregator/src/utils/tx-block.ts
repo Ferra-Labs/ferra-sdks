@@ -1,17 +1,15 @@
 import { Transaction } from '@mysten/sui/transactions'
 import { AggPairsError, UtilsErrorCode } from '../errors/errors'
-
+import { isValidSuiAddress } from '@mysten/sui/utils'
 /**
  * Check if the address is a valid sui address.
  * @param {string}address
  * @returns
  */
-export function checkInvalidSuiAddress(address: string): boolean {
-  if (!address.startsWith('0x') || address.length !== 66) {
-    return false
-  }
-  return true
+export function checkValidSuiAddress(address: string): boolean {
+  return !!address && isValidSuiAddress(address)
 }
+
 export class TxBlock {
   public txBlock: Transaction
 
@@ -31,7 +29,7 @@ export class TxBlock {
     }
 
     for (const recipient of recipients) {
-      if (!checkInvalidSuiAddress(recipient) === false) {
+      if (!checkValidSuiAddress(recipient) === false) {
         throw new AggPairsError('Invalid recipient address', UtilsErrorCode.InvalidRecipientAddress)
       }
     }
@@ -54,7 +52,7 @@ export class TxBlock {
    * @returns this
    */
   transferSui(recipient: string, amount: number) {
-    if (!checkInvalidSuiAddress(recipient) === false) {
+    if (!checkValidSuiAddress(recipient) === false) {
       throw new AggPairsError('Invalid recipient address', UtilsErrorCode.InvalidRecipientAddress)
     }
 
@@ -70,7 +68,7 @@ export class TxBlock {
    * @deprecated use transferAndDestoryZeroCoin instead
    */
   transferCoin(recipient: string, amount: number, coinObjectIds: string[]) {
-    if (!checkInvalidSuiAddress(recipient) === false) {
+    if (!checkValidSuiAddress(recipient) === false) {
       throw new AggPairsError('Invalid recipient address', UtilsErrorCode.InvalidRecipientAddress)
     }
 

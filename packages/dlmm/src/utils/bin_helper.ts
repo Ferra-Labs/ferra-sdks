@@ -195,7 +195,7 @@ export function getAmountOutOfBin(
   }
 
   // Get total amounts including fees
-  const [total_x, total_y] = getTotalAmounts(binReserves);
+  const [total_x, total_y] =  [binReserves.reserve_x,  binReserves.reserve_y];
 
   // Calculate proportional amounts using bigint arithmetic
   let amount_x_out: bigint;

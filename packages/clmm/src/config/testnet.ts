@@ -1,5 +1,5 @@
 import FerraClmmSDK, { SdkOptions } from '../main'
-import { checkInvalidSuiAddress } from '../utils'
+import { checkValidSuiAddress } from '../utils'
 
 
 const SDKConfig = {
@@ -7,7 +7,6 @@ const SDKConfig = {
     pools_id: '0x73facdbdd41871db56a06fd4a1df5e2f9c0521b9fea70d4c70ed67a45a74bc2b',
     global_config_id: '0x931f22436c8f1dc81dfe40f3a98a967ff8acc2abc600a58c8c323bc7ca2c33bc',
     global_rewarder_vault_id: '0x2da2d307345c689c1f319ff65212e28dccbc2edb461e79bb7da38d04b84c063d',
-    admin_cap_id: '0x5518b9d241d6004dfde3f09848bf241dec1617e49c788075073bc509e433cfc2',
   }
 }
 
@@ -26,7 +25,7 @@ export const clmmTestnet: SdkOptions = {
     package_id: '0x52a47d40182bf7c39c61a90bce250b8e39a6ca68fb2acaf1d5698f22e0accf7a',
     published_at: '0x52a47d40182bf7c39c61a90bce250b8e39a6ca68fb2acaf1d5698f22e0accf7a',
   },
-  swapCountUrl: 'https://api-dev.ferra.xyz/clmm/swap/pools'
+  swapCountUrl: 'https://api-dev.ferra.ag/clmm/swap/pools'
 }
 
 /**
@@ -40,7 +39,7 @@ export function initTestnetSDK(fullNodeUrl?: string, wallet?: string): FerraClmm
     clmmTestnet.fullRpcUrl = fullNodeUrl
   }
   const sdk = new FerraClmmSDK(clmmTestnet)
-  if (wallet && checkInvalidSuiAddress(wallet)) {
+  if (wallet && checkValidSuiAddress(wallet)) {
     sdk.senderAddress = wallet
   }
   return sdk

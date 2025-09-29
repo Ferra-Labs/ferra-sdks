@@ -19,9 +19,9 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@phoenix0x02/clmm": ["packages/clmm/src"],
-      "@phoenix0x02/dlmm": ["packages/dlmm/src"],
-      "@phoenix0x02/aggregator": ["packages/aggregator/src"]
+      "@ferra-labs/clmm": ["packages/clmm/src"],
+      "@ferra-labs/dlmm": ["packages/dlmm/src"],
+      "@ferra-labs/aggregator": ["packages/aggregator/src"]
     }
   },
   "references": [

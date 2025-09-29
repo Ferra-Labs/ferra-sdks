@@ -4,14 +4,14 @@ import { FerraDlmmSDK } from '../sdk'
 import { CachedContent } from '../utils/cached-content'
 import { Amounts, BinData, LBPair, LbPairBinData, LBPosition } from '../interfaces/IPair'
 import type { SuiObjectResponse, SuiParsedData } from '@mysten/sui/client'
-import { checkInvalidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
+import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
 import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
 import { LbPositionOnChain, PositionBinOnchain, PositionInfoOnChain, PositionReward } from '../interfaces/IPosition'
 
 import { getAmountOutOfBin } from '../utils/bin_helper'
 import { Transaction } from '@mysten/sui/transactions'
 import { inspect } from 'util'
-import { bcs } from '@mysten/bcs'
+import { bcs } from '@mysten/sui/bcs'
 import { CLOCK_ADDRESS } from '../types'
 
 /**
@@ -89,11 +89,11 @@ export class PositionModule implements IModule {
     const suiClient = this.sdk.fullClient
     const sender = this.sdk.senderAddress
     const {
-      dlmm_pool: { package_id },
+      dlmm_pool: { package_id, published_at },
     } = this.sdk.sdkOptions
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new DlmmPairsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -105,7 +105,13 @@ export class PositionModule implements IModule {
       const objects = await suiClient.getOwnedObjects({
         owner: sender,
         filter: {
-          StructType: `${package_id}::lb_position::LBPosition`,
+          MatchAny: [
+            {
+              StructType: `${package_id}::lb_position::LBPosition`,
+            },{
+              StructType: `${published_at}::lb_position::LBPosition`,
+            },
+          ],
         },
         options: {
           showContent: true,
@@ -269,31 +275,53 @@ export class PositionModule implements IModule {
     const rewards: PositionReward[] = []
     const sender = this.sdk.senderAddress
     const tx = new Transaction()
+    TransactionUtil.collectPositionFees(
+      {
+        pairId: pair.id,
+        positionId,
+        typeX: pair.tokenXType,
+        typeY: pair.tokenYType,
+        binIds,
+      },
+      this.sdk.sdkOptions,
+      tx
+    )
     for (const reward of pair.rewarders) {
-      TransactionUtil.getPositionRewards(
+      TransactionUtil.collectPositionRewards(
         {
           pairId: pair.id,
           positionId,
           rewardCoin: reward.reward_coin,
           typeX: pair.tokenXType,
           typeY: pair.tokenYType,
-          binIds
+          binIds,
         },
         this.sdk.sdkOptions,
         tx
       )
     }
     const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
+    
+    let skipped = false;
 
     for (const index in res.results ?? []) {
+      if (!skipped) {
+        skipped = true;
+      continue
+      }
       const result = res.results![index]
-      const reward = pair.rewarders[index]
-      const resValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
-      const value = bcs.u64().parse(resValue)
 
+      const coin = "0x2::coin::Coin";
+      if (!result.returnValues?.[0]?.[1].startsWith(coin)) {
+        continue
+      }
+      
+      const resValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
+      const value = bcs.struct("", { address: bcs.Address, value: bcs.u64() }).parse(resValue)
+      
       rewards.push({
-        amount: value,
-        coinType: normalizeStructTag(reward.reward_coin),
+        amount: value.value,
+        coinType: normalizeStructTag(result.returnValues?.[0]?.[1]),
       })
     }
 
@@ -326,7 +354,7 @@ export class PositionModule implements IModule {
           rewardCoin: reward.reward_coin,
           typeX: pair.tokenXType,
           typeY: pair.tokenYType,
-          binIds
+          binIds,
         },
         this.sdk.sdkOptions,
         tx
@@ -357,6 +385,7 @@ export class PositionModule implements IModule {
     let rewards: [PositionReward, PositionReward] | null = null
     const sender = this.sdk.senderAddress
     const tx = new Transaction()
+
     TransactionUtil.getPositionFees(
       {
         pairId: pair.id,
@@ -369,7 +398,7 @@ export class PositionModule implements IModule {
       tx
     )
     const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
-
+    
     for (const index in res.results ?? []) {
       const result = res.results![index]
       const resXValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
@@ -394,20 +423,20 @@ export class PositionModule implements IModule {
   }
 
   /**
- * Claim accumulated fees for specific bins of a position
- * @param pair - The LBPair containing the position
- * @param positionId - ID of the position to claim fees for
- * @param binIds - Array of bin IDs to claim fees from
- * @param tx - Optional existing transaction to add operations to
- * @returns Transaction object with fee claiming operations
- * 
- * @example
- * ```typescript
- * const binIds = [8388608, 8388609, 8388610];
- * const tx = await positionModule.claimPositionFee(pair, "0x123...", binIds);
- * // Fees from specified bins will be transferred to sender
- * ```
- */
+   * Claim accumulated fees for specific bins of a position
+   * @param pair - The LBPair containing the position
+   * @param positionId - ID of the position to claim fees for
+   * @param binIds - Array of bin IDs to claim fees from
+   * @param tx - Optional existing transaction to add operations to
+   * @returns Transaction object with fee claiming operations
+   *
+   * @example
+   * ```typescript
+   * const binIds = [8388608, 8388609, 8388610];
+   * const tx = await positionModule.claimPositionFee(pair, "0x123...", binIds);
+   * // Fees from specified bins will be transferred to sender
+   * ```
+   */
   public async claimPositionFee(pair: LBPair, positionId: string, binIds: number[], tx?: Transaction): Promise<Transaction> {
     const sender = this.sdk.senderAddress
     const BATCH_SIZE = 1000
@@ -435,19 +464,19 @@ export class PositionModule implements IModule {
   }
 
   /**
- * Lock a position until a specified timestamp to prevent modifications
- * @param pair - The LBPair containing the position
- * @param positionId - ID of the position to lock
- * @param untilTimestamp - Timestamp (in milliseconds) until which position should be locked
- * @param tx - Optional existing transaction to add operations to
- * @returns Transaction object with position locking operation
- * 
- * @example
- * ```typescript
- * const lockUntil = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 days
- * const tx = await positionModule.lockPosition(pair, "0x123...", lockUntil);
- * ```
- */
+   * Lock a position until a specified timestamp to prevent modifications
+   * @param pair - The LBPair containing the position
+   * @param positionId - ID of the position to lock
+   * @param untilTimestamp - Timestamp (in milliseconds) until which position should be locked
+   * @param tx - Optional existing transaction to add operations to
+   * @returns Transaction object with position locking operation
+   *
+   * @example
+   * ```typescript
+   * const lockUntil = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 days
+   * const tx = await positionModule.lockPosition(pair, "0x123...", lockUntil);
+   * ```
+   */
   public async lockPosition(pair: LBPair, positionId: string, untilTimestamp: number, tx?: Transaction): Promise<Transaction> {
     const sender = this.sdk.senderAddress
 
@@ -469,19 +498,19 @@ export class PositionModule implements IModule {
   }
 
   /**
- * Get the lock status and timing information for a position
- * @param positionId - ID of the position to check lock status for
- * @returns Promise resolving to tuple of [lockUntilTimestamp, currentTimestamp, isCurrentlyLocked]
- * 
- * @example
- * ```typescript
- * const [lockUntil, currentTime, isLocked] = await positionModule.getLockPositionStatus("0x123...");
- * if (isLocked) {
- *   const unlockDate = new Date(lockUntil);
- *   console.log(`Position locked until ${unlockDate}`);
- * }
- * ```
- */
+   * Get the lock status and timing information for a position
+   * @param positionId - ID of the position to check lock status for
+   * @returns Promise resolving to tuple of [lockUntilTimestamp, currentTimestamp, isCurrentlyLocked]
+   *
+   * @example
+   * ```typescript
+   * const [lockUntil, currentTime, isLocked] = await positionModule.getLockPositionStatus("0x123...");
+   * if (isLocked) {
+   *   const unlockDate = new Date(lockUntil);
+   *   console.log(`Position locked until ${unlockDate}`);
+   * }
+   * ```
+   */
   public async getLockPositionStatus(positionId: string): Promise<[current_lock: number, current_timestamp: number, is_locked: boolean]> {
     const sender = this.sdk.senderAddress
     const packageId = this.sdk.sdkOptions.dlmm_pool.package_id
@@ -645,13 +674,13 @@ export class PositionModule implements IModule {
     // Parse and validate struct tag
     const structTag = parseStructTag(typeTag)
     const {
-      dlmm_pool: { package_id },
+      dlmm_pool: { package_id, published_at },
     } = this.sdk.sdkOptions
 
     // Validate position type matches expected structure
     if (
       contents?.dataType !== 'moveObject' ||
-      structTag.address !== package_id ||
+      (structTag.address !== package_id && structTag.address !== published_at) ||
       structTag.module !== 'lb_position' ||
       structTag.name !== 'LBPosition'
     ) {

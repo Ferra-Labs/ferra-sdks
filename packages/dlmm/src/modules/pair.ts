@@ -14,7 +14,7 @@ import {
 } from '../interfaces/IPair'
 import { SuiObjectResponse, SuiParsedData } from '@mysten/sui/client'
 import { PrepareSwapParams } from '../interfaces/ISwap'
-import { checkInvalidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
+import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
 import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
 import { Transaction, type TransactionResult, coinWithBalance } from '@mysten/sui/transactions'
 import { CoinAssist } from '../math'
@@ -104,6 +104,7 @@ export class PairModule implements IModule {
 
     // Add moveCall for each bin in the range
     for (let i = binRange[0]; i < binRange[1]; i++) {
+      
       tx.moveCall({
         target: `${package_id}::lb_pair::get_bin`,
         arguments: [tx.object(pair.id), tx.pure.u32(i)],
@@ -116,12 +117,12 @@ export class PairModule implements IModule {
       sender: '0x0000000000000000000000000000000000000000000000000000000000000000',
       transactionBlock: tx,
     })
-
+    
     // Parse bin reserves from response
     const bins = res.results as { returnValues: [number[], string][] }[]
     return bins?.map((r) => ({
-      reserve_x: bcs.u128().parse(new Uint8Array(r.returnValues[0][0])),
-      reserve_y: bcs.u128().parse(new Uint8Array(r.returnValues[1][0])),
+      reserve_x: bcs.u64().parse(new Uint8Array(r.returnValues[0][0])),
+      reserve_y: bcs.u64().parse(new Uint8Array(r.returnValues[1][0])),
     }))
   }
 
@@ -174,7 +175,7 @@ export class PairModule implements IModule {
         const pairNodeInfo = objects
           .map((obj) => {
             const nodeContent = this.getStructContentFields<PairInfo>(obj)
-            return nodeContent?.value.fields.value.fields.pair_id
+            return nodeContent?.value.fields.pair_id
           })
           .filter((o) => !!o)
 
@@ -293,13 +294,13 @@ export class PairModule implements IModule {
     // Parse and validate struct tag
     const structTag = parseStructTag(typeTag)
     const {
-      dlmm_pool: { package_id },
+      dlmm_pool: { package_id, published_at },
     } = this.sdk.sdkOptions
 
     // Validate pair type matches expected structure
     if (
       contents?.dataType !== 'moveObject' ||
-      structTag.address !== package_id ||
+      (structTag.address !== package_id && structTag.address !== published_at) ||
       structTag.module !== 'lb_pair' ||
       structTag.name !== 'LBPair' ||
       structTag.typeParams.length != 2
@@ -362,7 +363,7 @@ export class PairModule implements IModule {
     const xtoy = params.xtoy ?? true
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new DlmmPairsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -428,7 +429,7 @@ export class PairModule implements IModule {
    * @param params - Liquidity parameters
    *   @param params.amountX - Amount of token X to add
    *   @param params.amountY - Amount of token Y to add
-   *   @param params.deltaIds - Array of relative bin IDs from active bin
+   *   @param params.ids - Array of relative bin IDs from active bin
    *   @param params.distributionX - Distribution percentages for token X across bins
    *   @param params.distributionY - Distribution percentages for token Y across bins
    * @param tx - Optional existing transaction to add operations to
@@ -439,7 +440,7 @@ export class PairModule implements IModule {
    * const tx = await router.addOpenBucketLiquidity(pair, {
    *   amountX: 1000000000n, // 1 token X
    *   amountY: 2000000000n, // 2 token Y
-   *   deltaIds: [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5],
+   *   ids: [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5],
    *   distributionX: [0, 0, 0, 0, 0, 50, 50, 0, 0, 0, 0],
    *   distributionY: [0, 0, 0, 0, 0, 50, 50, 0, 0, 0, 0]
    * });
@@ -471,7 +472,7 @@ export class PairModule implements IModule {
       tx = TransactionUtil.addLiquidity(
         pair,
         {
-          deltaIds: params.deltaIds,
+          ids: params.ids,
           distributionX: params.distributionX,
           distributionY: params.distributionY,
           amountX,
@@ -520,14 +521,14 @@ export class PairModule implements IModule {
   // async addLiquidity(pair: LBPair, params: AddLiquidityParams, tx?: Transaction) {
   //   const BATCH_SIZE = 50;
 
-  //   const binLenght = params.deltaIds.length;
+  //   const binLenght = params.ids.length;
 
   //   if (BATCH_SIZE >= binLenght) {
   //     return this.addLiquidityInternal(pair, params, tx)
   //   }
 
   //   for (let i = 0; i < binLenght; i += BATCH_SIZE) {
-  //     const currentIds = params.deltaIds.slice(i, i + BATCH_SIZE);
+  //     const currentIds = params.ids.slice(i, i + BATCH_SIZE);
   //     const newAmountX = params.amountX * BigInt(currentIds.length) / BigInt(binLenght);
   //     const newAmountY = params.amountY * BigInt(currentIds.length) / BigInt(binLenght);
 
@@ -535,7 +536,7 @@ export class PairModule implements IModule {
   //       ...params,
   //       amountX: newAmountX,
   //       amountY: newAmountY,
-  //       deltaIds: currentIds,
+  //       ids: currentIds,
   //       distributionX: params.distributionX.slice(i, i + BATCH_SIZE),
   //       distributionY: params.distributionY.slice(i, i + BATCH_SIZE),
   //     }, tx)
@@ -550,7 +551,7 @@ export class PairModule implements IModule {
    *   @param params.positionId - ID of existing position to add liquidity to
    *   @param params.amountX - Amount of token X to add
    *   @param params.amountY - Amount of token Y to add
-   *   @param params.deltaIds - Array of relative bin IDs from active bin
+   *   @param params.ids - Array of relative bin IDs from active bin
    *   @param params.distributionX - Distribution percentages for token X across bins
    *   @param params.distributionY - Distribution percentages for token Y across bins
    * @param tx - Optional existing transaction to add operations to
@@ -562,7 +563,7 @@ export class PairModule implements IModule {
    *   positionId: "0x123...",
    *   amountX: 1000000000n,
    *   amountY: 2000000000n,
-   *   deltaIds: [-2, -1, 0, 1, 2],
+   *   ids: [-2, -1, 0, 1, 2],
    *   distributionX: [10, 20, 40, 20, 10],
    *   distributionY: [10, 20, 40, 20, 10]
    * });
@@ -582,7 +583,7 @@ export class PairModule implements IModule {
     TransactionUtil.addLiquidity(
       pair,
       {
-        deltaIds: params.deltaIds,
+        ids: params.ids,
         distributionX: params.distributionX,
         distributionY: params.distributionY,
         amountX,
@@ -627,7 +628,7 @@ export class PairModule implements IModule {
     const sender = this.sdk.senderAddress
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new DlmmPairsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -670,7 +671,7 @@ export class PairModule implements IModule {
     const sender = this.sdk.senderAddress
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new DlmmPairsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -730,8 +731,6 @@ export function formatBins(
     reserve_y: string
     price: string
     total_supply: string
-    fee_x: string
-    fee_y: string
     fee_growth_x: string
     fee_growth_y: string
   }[]
@@ -744,8 +743,6 @@ export function formatBins(
         reserve_y: BigInt(b.reserve_y),
         price: BigInt(b.price),
         total_supply: BigInt(b.total_supply),
-        fee_x: BigInt(b.fee_x),
-        fee_y: BigInt(b.fee_y),
         fee_growth_x: BigInt(b.fee_growth_x),
         fee_growth_y: BigInt(b.fee_growth_y),
       }) as LbPairBinData

@@ -2,9 +2,7 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 import { initFerraSDK } from '../src'
 import { fromBase64 } from '@mysten/sui/utils'
 import { decodeSuiPrivateKey } from '@mysten/sui/cryptography'
-
-const SUI_COINTYPE = '0x2::sui::SUI'
-const USDC_COINTYPE = '0xb4ae83dbcf37037c7759c76df7a330278b897c0c322121efb10067f325b1a6d1::fusdc::FUSDC'
+import { Transaction } from '@mysten/sui/transactions'
 
 export async function main() {
   const privateKey = process.env.SUI_WALLET_PRIVATEKEY || ''
@@ -20,21 +18,14 @@ export async function main() {
   }
 
   const wallet = keypair.getPublicKey().toSuiAddress()
-  const sdk = initFerraSDK({ network: 'beta', wallet })
-
+  const sdk = initFerraSDK({ network: 'testnet', wallet })
+  let hasTx = false
   const TEST = true
-  const pair = await sdk.Pair.getPair('0x323e18fba6f65c8a67d75c97895857c1f5126e4eace4092eee7cddccb8eba2b6')
-
-  if (!pair) {
-    throw new Error('Pair not found')
-  }
-  const bins = await sdk.Position.getPositionBinsAmount(pair, '0xeff319521454059e0ada50e058ae037375f22d5c87d679b3fc8bce8ab215faf4')
-  console.log(
-    'bins',
-    bins
-  )
-
-  const tx = await sdk.Pair.removeAndClosePosition(pair, "0xeff319521454059e0ada50e058ae037375f22d5c87d679b3fc8bce8ab215faf4")
+  const pair = await sdk.Pair.getPair("0x839b50516175f9a345d70e6df2d9e32cb29a2893e8c47a7cb451a88a27bed20e")
+  const tx = new Transaction()
+  
+  const bins = await sdk.Pair.getPairBins(pair!, [8445280, 8445287])
+  console.log('bins', bins);
 
   let res
 
@@ -53,11 +44,3 @@ export async function main() {
 }
 
 process.argv.at(-1) == __filename && main()
-
-function createListBins(from: number, to: number) {
-  let list: number[] = []
-  for (let i = from; i < to; i++) {
-    list.push(i)
-  }
-  return list
-}

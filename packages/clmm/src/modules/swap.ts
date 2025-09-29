@@ -20,7 +20,7 @@ import { IModule } from '../interfaces/IModule'
 import { SwapUtils } from '../math/swap'
 import { computeSwap } from '../math/clmm'
 import { TickMath } from '../math/tick'
-import { checkInvalidSuiAddress, d } from '../utils'
+import { checkValidSuiAddress, d } from '../utils'
 import { SplitPath } from './router'
 import { ClmmpoolsError, ConfigErrorCode, SwapErrorCode, UtilsErrorCode } from '../errors/errors'
 
@@ -38,89 +38,6 @@ export class SwapModule implements IModule {
 
   get sdk() {
     return this._sdk
-  }
-
-  /**
-   * Calculates total swap fees across multiple split paths
-   * @param splitPaths - Array of split paths containing fee information
-   * @returns Total fee amount as string
-   */
-  calculateSwapFee(splitPaths: SplitPath[]) {
-    let totalFee = d(0)
-
-    splitPaths.forEach((pathItem) => {
-      const numberOfPaths = pathItem.basePaths.length
-      if (numberOfPaths > 0) {
-        const firstPath = pathItem.basePaths[0]
-        const feeRate = firstPath.label === 'Ferra' ? new Decimal(firstPath.feeRate).div(10 ** 6) : new Decimal(firstPath.feeRate).div(10 ** 9)
-        const firstFeeAmount = d(firstPath.inputAmount)
-          .div(10 ** firstPath.fromDecimal)
-          .mul(feeRate)
-        totalFee = totalFee.add(firstFeeAmount)
-
-        if (numberOfPaths > 1) {
-          const secondPath = pathItem.basePaths[1]
-          const firstPrice = firstPath.direction ? firstPath.currentPrice : new Decimal(1).div(firstPath.currentPrice)
-          const secondPrice = secondPath.direction ? secondPath.currentPrice : new Decimal(1).div(secondPath.currentPrice)
-          const secondFeeRate = secondPath.label === 'Ferra' ? new Decimal(secondPath.feeRate).div(10 ** 6) : new Decimal(secondPath.feeRate).div(10 ** 9)
-
-          const secondFeeAmount = d(secondPath.outputAmount)
-            .div(10 ** secondPath.toDecimal)
-            .mul(secondFeeRate)
-          const adjustedSecondFee = secondFeeAmount.div(firstPrice.mul(secondPrice))
-          totalFee = totalFee.add(adjustedSecondFee)
-        }
-      }
-    })
-
-    return totalFee.toString()
-  }
-
-  /**
-   * Calculates price impact percentage across multiple split paths
-   * @param splitPaths - Array of split paths for impact calculation
-   * @returns Total price impact as string percentage
-   */
-  calculateSwapPriceImpact(splitPaths: SplitPath[]) {
-    let totalImpact = d(0)
-
-    splitPaths.forEach((pathItem) => {
-      const numberOfPaths = pathItem.basePaths.length
-
-      if (numberOfPaths === 1) {
-        const singlePath = pathItem.basePaths[0]
-        const outputAmount = d(singlePath.outputAmount).div(10 ** singlePath.toDecimal)
-        const inputAmount = d(singlePath.inputAmount).div(10 ** singlePath.fromDecimal)
-        const exchangeRate = outputAmount.div(inputAmount)
-        const currentPrice = singlePath.direction ? new Decimal(singlePath.currentPrice) : new Decimal(1).div(singlePath.currentPrice)
-        totalImpact = totalImpact.add(this.calculateSingleImpact(exchangeRate, currentPrice))
-      }
-
-      if (numberOfPaths === 2) {
-        const firstPath = pathItem.basePaths[0]
-        const secondPath = pathItem.basePaths[1]
-        const firstPrice = firstPath.direction ? new Decimal(firstPath.currentPrice) : new Decimal(1).div(firstPath.currentPrice)
-        const secondPrice = secondPath.direction ? new Decimal(secondPath.currentPrice) : new Decimal(1).div(secondPath.currentPrice)
-        const combinedPrice = firstPrice.mul(secondPrice)
-        const outputAmount = new Decimal(secondPath.outputAmount).div(10 ** secondPath.toDecimal)
-        const inputAmount = new Decimal(firstPath.inputAmount).div(10 ** firstPath.fromDecimal)
-        const exchangeRate = outputAmount.div(inputAmount)
-        totalImpact = totalImpact.add(this.calculateSingleImpact(exchangeRate, combinedPrice))
-      }
-    })
-
-    return totalImpact.toString()
-  }
-
-  /**
-   * Calculates price impact for a single path
-   * @param exchangeRate - Actual exchange rate achieved
-   * @param marketPrice - Current market price
-   * @returns Price impact percentage
-   */
-  private calculateSingleImpact = (exchangeRate: Decimal, marketPrice: Decimal) => {
-    // Calculate impact as: ((marketPrice - exchangeRate) / marketPrice) * 100
-    return marketPrice.minus(exchangeRate).div(marketPrice).mul(100)
   }
 
   /**
@@ -147,7 +64,7 @@ export class SwapModule implements IModule {
       })
     }
 
-    if (!checkInvalidSuiAddress(simulationAccount.address)) {
+    if (!checkValidSuiAddress(simulationAccount.address)) {
       throw new ClmmpoolsError('Invalid simulation account configuration', ConfigErrorCode.InvalidSimulateAccount)
     }
 
@@ -176,26 +93,30 @@ export class SwapModule implements IModule {
     }
 
     let optimalAmount = swapParams.byAmountIn ? ZERO : U64_MAX
-    let optimalPoolIndex = 0
+    let optimalPoolIndex = -1
 
     for (let eventIndex = 0; eventIndex < swapEventData.length; eventIndex += 1) {
       if (swapEventData[eventIndex].parsedJson.data.is_exceed) {
         continue
       }
+      const outputAmount = swapParams.byAmountIn
+        ? new BN(swapEventData[eventIndex].parsedJson.data.amount_out)
+        : new BN(swapEventData[eventIndex].parsedJson.data.amount_in)
 
-      if (swapParams.byAmountIn) {
-        const outputAmount = new BN(swapEventData[eventIndex].parsedJson.data.amount_out)
-        if (outputAmount.gt(optimalAmount)) {
-          optimalPoolIndex = eventIndex
-          optimalAmount = outputAmount
-        }
-      } else {
-        const outputAmount = new BN(swapEventData[eventIndex].parsedJson.data.amount_out)
-        if (outputAmount.lt(optimalAmount)) {
-          optimalPoolIndex = eventIndex
-          optimalAmount = outputAmount
-        }
+      if (optimalPoolIndex === -1) {
+        optimalPoolIndex = eventIndex
+        optimalAmount = outputAmount
+      } else if (swapParams.byAmountIn && outputAmount.gt(optimalAmount)) {
+        optimalPoolIndex = eventIndex
+        optimalAmount = outputAmount
+      } else if (!swapParams.byAmountIn && outputAmount.lt(optimalAmount)) {
+        optimalPoolIndex = eventIndex
+        optimalAmount = outputAmount
       }
+    }
+
+    if (optimalPoolIndex === -1) {
+      throw new Error('No valid pool for swap')
     }
 
     return this.transformSwapWithMultiPoolData(
@@ -226,7 +147,7 @@ export class SwapModule implements IModule {
       transaction.object(swapParams.pool.poolAddress),
       transaction.pure.bool(swapParams.a2b),
       transaction.pure.bool(swapParams.byAmountIn),
-      transaction.pure.u64(swapParams.amount)
+      transaction.pure.u64(swapParams.amount),
     ]
 
     transaction.moveCall({
@@ -235,7 +156,7 @@ export class SwapModule implements IModule {
       typeArguments: coinTypes,
     })
 
-    if (!checkInvalidSuiAddress(simulationAccount.address)) {
+    if (!checkValidSuiAddress(simulationAccount.address)) {
       throw new ClmmpoolsError('Invalid simulation account configuration', ConfigErrorCode.InvalidSimulateAccount)
     }
 
@@ -269,9 +190,10 @@ export class SwapModule implements IModule {
    * @returns Structured swap data object
    */
   private transformSwapData(swapParams: PreSwapParams, simulationData: any) {
-    const calculatedAmountIn = simulationData.amount_in && simulationData.fee_amount
-      ? new BN(simulationData.amount_in).add(new BN(simulationData.fee_amount)).toString()
-      : ''
+    const calculatedAmountIn =
+      simulationData.amount_in && simulationData.fee_amount
+        ? new BN(simulationData.amount_in).add(new BN(simulationData.fee_amount)).toString()
+        : ''
 
     return {
       poolAddress: swapParams.pool.poolAddress,
@@ -298,9 +220,7 @@ export class SwapModule implements IModule {
 
     console.log('Multi-pool swap simulation data: ', data)
 
-    const calculatedAmountIn = data.amount_in && data.fee_amount
-      ? new BN(data.amount_in).add(new BN(data.fee_amount)).toString()
-      : ''
+    const calculatedAmountIn = data.amount_in && data.fee_amount ? new BN(data.amount_in).add(new BN(data.fee_amount)).toString() : ''
 
     return {
       poolAddress: swapParams.poolAddress,
@@ -336,7 +256,13 @@ export class SwapModule implements IModule {
       })
     }
 
-    const swapCalculationResult = computeSwap(calculationParams.a2b, calculationParams.byAmountIn, calculationParams.amount, poolData, sortedTicks)
+    const swapCalculationResult = computeSwap(
+      calculationParams.a2b,
+      calculationParams.byAmountIn,
+      calculationParams.amount,
+      poolData,
+      sortedTicks
+    )
 
     let hasExceededLimits = false
     if (calculationParams.byAmountIn) {
@@ -363,10 +289,24 @@ export class SwapModule implements IModule {
       hasExceededLimits = true
     }
 
-    const initialPrice = TickMath.sqrtPriceX64ToPrice(poolData.currentSqrtPrice, calculationParams.decimalsA, calculationParams.decimalsB).toNumber()
-    const finalPrice = TickMath.sqrtPriceX64ToPrice(swapCalculationResult.nextSqrtPrice, calculationParams.decimalsA, calculationParams.decimalsB).toNumber()
+    let initialPrice = TickMath.sqrtPriceX64ToPrice(
+      poolData.currentSqrtPrice,
+      calculationParams.decimalsA,
+      calculationParams.decimalsB
+    ).toNumber()
+    let decimalAdjustment = Math.pow(10, calculationParams.decimalsA - calculationParams.decimalsB)
 
-    const priceImpactPercentage = (Math.abs(initialPrice - finalPrice) / initialPrice) * 100
+    if (calculationParams.a2b === false) {
+      initialPrice = 1 / initialPrice
+      decimalAdjustment = Math.pow(10, calculationParams.decimalsB - calculationParams.decimalsA)
+    }
+
+    const executionPrice = new Decimal(swapCalculationResult.amountOut.toNumber())
+      .div(swapCalculationResult.amountIn.toNumber())
+      .mul(decimalAdjustment)
+      .toNumber()
+    
+    const priceImpactPercentage = ((executionPrice - initialPrice) / initialPrice) * 100
 
     return {
       estimatedAmountIn: swapCalculationResult.amountIn,
@@ -399,7 +339,7 @@ export class SwapModule implements IModule {
       currentPool: Pool
     }
   ): Promise<Transaction> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: Ferra CLMM SDK requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -412,7 +352,12 @@ export class SwapModule implements IModule {
       const { isAdjustCoinA, isAdjustCoinB } = findAdjustCoin(swapParams)
 
       if ((swapParams.a2b && isAdjustCoinA) || (!swapParams.a2b && isAdjustCoinB)) {
-        const gasOptimizedTransaction = await TransactionUtil.buildSwapTransactionForGas(this._sdk, swapParams, userCoinAssets, gasEstimationConfig)
+        const gasOptimizedTransaction = await TransactionUtil.buildSwapTransactionForGas(
+          this._sdk,
+          swapParams,
+          userCoinAssets,
+          gasEstimationConfig
+        )
         return gasOptimizedTransaction
       }
     }
@@ -437,7 +382,7 @@ export class SwapModule implements IModule {
       currentPool: Pool
     }
   ): Promise<{ tx: Transaction; coinABs: TransactionObjectArgument[] }> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: Ferra CLMM SDK requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -450,7 +395,12 @@ export class SwapModule implements IModule {
       const { isAdjustCoinA, isAdjustCoinB } = findAdjustCoin(swapParams)
 
       if ((swapParams.a2b && isAdjustCoinA) || (!swapParams.a2b && isAdjustCoinB)) {
-        const gasOptimizedResult = await TransactionUtil.buildSwapTransactionWithoutTransferCoinsForGas(this._sdk, swapParams, userCoinAssets, gasEstimationConfig)
+        const gasOptimizedResult = await TransactionUtil.buildSwapTransactionWithoutTransferCoinsForGas(
+          this._sdk,
+          swapParams,
+          userCoinAssets,
+          gasEstimationConfig
+        )
         return gasOptimizedResult
       }
     }

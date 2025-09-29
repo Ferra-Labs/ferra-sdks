@@ -783,7 +783,7 @@
   dependencies:
     camelcase "^5.3.1"
     find-up "^4.1.0"
-    get-package-type "^0.1.0"
+    get-package-type "^0.1.6"
     js-yaml "^3.13.1"
     resolve-from "^5.0.0"
 
@@ -1029,7 +1029,7 @@
   resolved "https://registry.yarnpkg.com/@mysten/bcs/-/bcs-1.6.3.tgz#49eb50ea8356b36971a82df7992182d3521ea1d7"
   integrity sha512-QQ6u0U7a4+/o6rZ9tALTeGYMdf6V5z/HkRI/mhD5/fSr80DJoGzOWpFszcN/fhJpKb36vBaSQUMpS7yNQ10xBQ==
   dependencies:
-    "@mysten/utils" "0.1.0"
+    "@mysten/utils" "0.1.6"
     "@scure/base" "^1.2.6"
 
 "@mysten/sui@^1.21.1":
@@ -1039,7 +1039,7 @@
   dependencies:
     "@graphql-typed-document-node/core" "^3.2.0"
     "@mysten/bcs" "1.6.3"
-    "@mysten/utils" "0.1.0"
+    "@mysten/utils" "0.1.6"
     "@noble/curves" "^1.9.1"
     "@noble/hashes" "^1.8.0"
     "@scure/base" "^1.2.6"
@@ -1050,9 +1050,9 @@
     poseidon-lite "^0.2.0"
     valibot "^0.36.0"
 
-"@mysten/utils@0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@mysten/utils/-/utils-0.1.0.tgz#115ba377d3962b0ab64bf0ad66e905da8411c3ed"
+"@mysten/utils@0.1.6":
+  version "0.1.6"
+  resolved "https://registry.yarnpkg.com/@mysten/utils/-/utils-0.1.6.tgz#115ba377d3962b0ab64bf0ad66e905da8411c3ed"
   integrity sha512-nFxqArh4cr629elLsIk7UZmx5dFVshblwrfwaG7Dm2L/ii2C65bhK5tdTs6UiC3K0tCr8q8svrgzXyF9L0CN/A==
   dependencies:
     "@scure/base" "^1.2.6"
@@ -3267,9 +3267,9 @@ get-intrinsic@^1.2.4, get-intrinsic@^1.2.5, get-intrinsic@^1.2.6, get-intrinsic@
     hasown "^2.0.2"
     math-intrinsics "^1.1.0"
 
-get-package-type@^0.1.0:
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/get-package-type/-/get-package-type-0.1.0.tgz#8de2d803cff44df3bc6c456e6668b36c3926e11a"
+get-package-type@^0.1.6:
+  version "0.1.6"
+  resolved "https://registry.yarnpkg.com/get-package-type/-/get-package-type-0.1.6.tgz#8de2d803cff44df3bc6c456e6668b36c3926e11a"
   integrity sha512-pjzuKtY64GYfWizNAJ0fr9VqttZkNiK2iS430LtIHzjBEr6bX8Am2zm4sW4Ro5wjWW5cAlRL1qAMTcXbjNAO2Q==
 
 get-pkg-repo@^4.0.0:
@@ -5023,7 +5023,7 @@ p-limit@^3.0.2, p-limit@^3.1.0:
   resolved "https://registry.yarnpkg.com/p-limit/-/p-limit-3.1.0.tgz#e1daccbe78d0d1388ca18c64fea38e3e57e3706b"
   integrity sha512-TYOanM3wGwNGsZN2cVTYPArw454xnXj5qmWF1bEoAc4+cU/ol7GVh7odevjp1FNHduHc3KZMcFduxU5Xc6uJRQ==
   dependencies:
-    yocto-queue "^0.1.0"
+    yocto-queue "^0.1.6"
 
 p-locate@^2.0.0:
   version "2.0.0"
@@ -6639,7 +6639,7 @@ yn@3.1.1:
   resolved "https://registry.yarnpkg.com/yn/-/yn-3.1.1.tgz#1e87401a09d767c1d5eab26a6e4c185182d2eb50"
   integrity sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==
 
-yocto-queue@^0.1.0:
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/yocto-queue/-/yocto-queue-0.1.0.tgz#0294eb3dee05028d31ee1a5fa2c556a6aaf10a1b"
+yocto-queue@^0.1.6:
+  version "0.1.6"
+  resolved "https://registry.yarnpkg.com/yocto-queue/-/yocto-queue-0.1.6.tgz#0294eb3dee05028d31ee1a5fa2c556a6aaf10a1b"
   integrity sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==

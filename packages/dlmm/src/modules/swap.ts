@@ -3,13 +3,15 @@ import { FerraDlmmSDK } from '../sdk'
 import { CachedContent } from '../utils/cached-content'
 import { LBPair } from '../interfaces/IPair'
 import { CalculateRatesResult, CalculateSwapParams, PrepareSwapParams } from '../interfaces/ISwap'
-import { checkInvalidSuiAddress, SwapUtils, TransactionUtil } from '../utils'
+import { checkValidSuiAddress, SwapUtils, TransactionUtil } from '../utils'
 import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
 import { coinWithBalance, Transaction, type TransactionResult } from '@mysten/sui/transactions'
 import { BinMath, CoinAssist } from '../math'
 
 import Decimal from 'decimal.js'
 import { SUI_DECIMALS } from '@mysten/sui/utils'
+
+const MAX_LOOP_ITERATIONS = 70
 
 /**
  * Module for managing DLMM swap
@@ -57,23 +59,37 @@ export class SwapModule implements IModule {
    * ```
    */
   public calculateRates(pair: LBPair, params: CalculateSwapParams): CalculateRatesResult {
-    const [amountInRemain, amountOut, feeAmount, newBinId] = SwapUtils.getSwapOut(pair, params.swapBins, params.amount, params.xtoy ?? true)
-
+    const [amountInRemain, amountOut, feeAmount, newBinId, isMaxLoop] = SwapUtils.getSwapOut(
+      pair,
+      params.swapBins,
+      params.amount,
+      params.xtoy ?? true
+    )
+    const amountInCost = params.amount - amountInRemain
     const currentBinId = pair.parameters.active_id
 
-    const currentPrice = BinMath.getPriceFromId(currentBinId, Number(pair.binStep), SUI_DECIMALS, SUI_DECIMALS)
-    const newPricePrice = BinMath.getPriceFromId(Number(newBinId.toString()), Number(pair.binStep), SUI_DECIMALS, SUI_DECIMALS)
-    const priceImpactPercentage = new Decimal(currentPrice).sub(new Decimal(newPricePrice)).abs().div(currentBinId).toNumber()
+    let currentPrice = BinMath.getPriceFromId(currentBinId, Number(pair.binStep), params.decimalsA, params.decimalsB)
+    let decimalAdjustment = Math.pow(10, params.decimalsA - params.decimalsB)
+
+    if (params.xtoy === false) {
+      currentPrice = currentPrice !== 0 ? 1 / currentPrice : 0
+      decimalAdjustment = Math.pow(10, params.decimalsB - params.decimalsA)
+    }
+
+    const executionPrice = Decimal(amountOut.toString()).div(amountInCost.toString()).mul(decimalAdjustment)
+    
+    const priceImpactPercentage = executionPrice.sub(currentPrice).div(currentPrice).mul(100).toNumber()
 
     return {
       amount: params.amount,
-      estimatedAmountIn: params.amount - amountInRemain,
+      estimatedAmountIn: amountInCost,
       estimatedAmountOut: amountOut,
       estimatedEndBinId: Number(newBinId),
       estimatedFeeAmount: feeAmount,
       extraComputeLimit: 0,
-      isExceed: amountInRemain > 0,
-      priceImpactPct: priceImpactPercentage,
+      isExceed: amountInRemain > 0 || isMaxLoop,
+      isMaxLoop,
+      priceImpactPct: isNaN(priceImpactPercentage) ? 0 : priceImpactPercentage,
       xToY: params.xtoy ?? true,
     }
   }
@@ -92,7 +108,7 @@ export class SwapModule implements IModule {
     const xtoy = params.xtoy ?? true
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new DlmmPairsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress

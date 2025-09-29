@@ -1,7 +1,7 @@
 import { DynamicFieldPage, SuiObjectResponse, SuiTransactionBlockResponse } from '@mysten/sui/client'
 import { normalizeSuiAddress } from '@mysten/sui/utils'
 import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions'
-import { CachedContent, cacheTime24h, cacheTime5min, checkInvalidSuiAddress, getFutureTime } from '../utils'
+import { CachedContent, cacheTime24h, cacheTime5min, checkValidSuiAddress, getFutureTime } from '../utils'
 import {
   CreatePoolAddLiquidityParams,
   CreatePoolParams,
@@ -384,7 +384,6 @@ export class PoolModule implements IModule {
       pools_id: '',
       global_config_id: '',
       global_rewarder_vault_id: '',
-      admin_cap_id: '',
     }
 
     if (objects.length > 0) {
@@ -395,7 +394,6 @@ export class PoolModule implements IModule {
           switch (extractStructTagFromType(item.type).full_address) {
             case `${package_id}::config::InitConfigEvent`:
               clmmConfig.global_config_id = fields.global_config_id
-              clmmConfig.admin_cap_id = fields.admin_cap_id
               break
             case `${package_id}::factory::InitFactoryEvent`:
               clmmConfig.pools_id = fields.pools_id
@@ -527,7 +525,7 @@ export class PoolModule implements IModule {
    * @returns Transaction object
    */
   private async createPoolAndAddLiquidity(params: CreatePoolAddLiquidityParams): Promise<Transaction> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -552,7 +550,6 @@ export class PoolModule implements IModule {
       tx.pure.u32(Number(asUintN(BigInt(params.tick_upper)).toString())),
       primaryCoinAInputsR.targetCoin,
       primaryCoinBInputsR.targetCoin,
-      tx.pure.u64(params.lock_until ?? 0),
       tx.pure.bool(params.fix_amount_a),
       tx.object(CLOCK_ADDRESS),
     ]
@@ -626,7 +623,7 @@ export class PoolModule implements IModule {
       typeArguments,
     })
 
-    if (!checkInvalidSuiAddress(simulationAccount.address)) {
+    if (!checkValidSuiAddress(simulationAccount.address)) {
       throw new ClmmpoolsError(
         'Invalid simulation account: Configuration requires a valid Sui address. Please check your SDK configuration.',
         ConfigErrorCode.InvalidSimulateAccount
@@ -685,7 +682,7 @@ export class PoolModule implements IModule {
         typeArguments,
       })
 
-      if (!checkInvalidSuiAddress(simulationAccount.address)) {
+      if (!checkValidSuiAddress(simulationAccount.address)) {
         throw new ClmmpoolsError('this config simulationAccount is not set right', ConfigErrorCode.InvalidSimulateAccount)
       }
       const simulateRes = await this.sdk.fullClient.devInspectTransactionBlock({

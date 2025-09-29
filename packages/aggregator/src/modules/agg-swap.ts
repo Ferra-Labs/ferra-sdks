@@ -7,7 +7,7 @@ import { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions
 import { AggSwapParams, SwapClmmFerraParams, SwapDlmmFerraParams } from "../interfaces/IAggSwap"
 import { DexOrigins, DexTypes, TradingRoute } from "../interfaces"
 import { FerraClmmAgg, FerraDlmmAgg } from "../integrates/ferra"
-import { checkInvalidSuiAddress, TransactionUtil } from "../utils"
+import { checkValidSuiAddress, TransactionUtil } from "../utils"
 import { CoinAssist } from "../math/coin-assist"
 
 
@@ -41,7 +41,7 @@ export class AggSwapModule implements IModule {
     const sender = this.sdk.senderAddress
 
     // Validate sender address
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new AggPairsError(
         'Invalid sender address: ferra agg sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress

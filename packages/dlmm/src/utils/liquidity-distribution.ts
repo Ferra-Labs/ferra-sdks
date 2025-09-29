@@ -1,395 +1,416 @@
 import { Decimal } from 'decimal.js'
-import { Big } from 'big.js'
-import { fromDecimalsAmount, toDecimalsAmount } from './common'
+
+// export namespace DistributionUtils {
+//   function parseEther(v: string) {
+//     return BigInt(toDecimalsAmount(v, 18))
+//   }
+// //tôi cần một hàm gen distribution,
+
+//   export type LiquidityDistribution = typeof SPOT | typeof CURVE | typeof BID_ASK
+
+//   export interface LiquidityDistributionParams {
+//     deltaIds: number[]
+//     distributionX: bigint[]
+//     distributionY: bigint[]
+//   }
+
+//   interface DistributionParams {
+//     activeId: number;
+//     binRange: [from: number, to: number];
+//     parsedAmounts: [AmountA: Decimal, AmountB: Decimal];
+//     alpha?: number;
+//   }
+
+// }
 
 export namespace DistributionUtils {
-  function parseEther(v: string) {
-    return BigInt(toDecimalsAmount(v, 18))
-  }
+  const PRECISION = 10n ** 9n // 1e18 for percentage precision
 
+  type DistributionType = 'SPOT' | 'CURVE' | 'BID_ASK'
   export const SPOT = 'SPOT'
   export const CURVE = 'CURVE'
   export const BID_ASK = 'BID_ASK'
-  export type LiquidityDistribution = typeof SPOT | typeof CURVE | typeof BID_ASK
-
   export const LiquidityDistribution = {
     SPOT,
     CURVE,
     BID_ASK,
   } as const
 
+  export interface DistributionParams {
+    activeId: number
+    binRange: [from: number, to: number]
+    parsedAmounts: [AmountA: Decimal, AmountB: Decimal]
+    alpha?: number
+  }
+
   export interface LiquidityDistributionParams {
     deltaIds: number[]
+    ids: number[]
     distributionX: bigint[]
     distributionY: bigint[]
   }
 
   /**
- * Returns distribution params for on-chain addLiquidity() call
- * 
- * @param {LiquidityDistribution} distribution 
- * @returns {LiquidityDistributionParams}
-}
- */
-  // const getLiquidityConfig = (
-  //   distribution: LiquidityDistribution
-  // ): LiquidityDistributionParams => {
-  //   switch (distribution) {
-  //     case LiquidityDistribution.SPOT:
-  //       return spotUniform
-  //     case LiquidityDistribution.CURVE:
-  //       return curve
-  //     case LiquidityDistribution.BID_ASK:
-  //       return bidAsk
-  //   }
-  // }
-
-  /**
-   * Returns distribution params for on-chain addLiquidity() call when liquidity is focused at a target bin
-   * @param {number} activeId
-   * @param {number} targetBin
-   * @returns {LiquidityDistributionParams}
-   */
-  export const fromTargetBin = (activeId: number, targetBin: number): LiquidityDistributionParams => {
-    const change = targetBin - activeId
-    return {
-      deltaIds: [targetBin],
-      distributionX: change >= 0 ? [parseEther('1')] : [parseEther('0')],
-      distributionY: change <= 0 ? [parseEther('1')] : [parseEther('0')],
-    }
-  }
-
-  export const normalizeDist = (dist: bigint[], sumTo: bigint, precision: bigint): bigint[] => {
-    const sumDist = dist.reduce((sum, cur) => sum + cur, BigInt(0))
-    if (sumDist === BigInt(0)) {
-      return dist
-    }
-    const factor = (sumDist * precision) / sumTo
-    const normalized = dist.map((d) => (d * precision) / factor)
-    return normalized
-  }
-
-  type CreateSpotParams = {
-    activeId: number
-    binRange: [number, number]
-    parsedAmounts: [AmountA: Decimal, AmountB: Decimal]
-  }
-
-  type CreateBidAskParams = {
-    activeId: number
-    binRange: [from: number, to: number]
-    parsedAmounts: [AmountA: Decimal, AmountB: Decimal]
-  }
-
-  type CreateCurveParams = {
-    activeId: number
-    binRange: [from: number, to: number]
-    parsedAmounts: [AmountA: Decimal, AmountB: Decimal]
-    alpha: number
-  }
-
-  type CreateDistributionParams<T extends LiquidityDistribution> = T extends typeof SPOT
-    ? CreateSpotParams
-    : T extends typeof BID_ASK
-      ? CreateBidAskParams
-      : CreateCurveParams
-
-  export function createParams<T extends LiquidityDistribution>(type: T, params: CreateDistributionParams<T>): LiquidityDistributionParams {
-    let { activeId, binRange, parsedAmounts } = params as CreateBidAskParams
-
-    const [parsedAmountA, parsedAmountB] = parsedAmounts
-
-    let isEmptyOne = false
-    let missingRange: number[] = []
-
-    if (parsedAmountA.isZero()) {
-      missingRange = [binRange[0], activeId]
-      binRange = [activeId, binRange[1]]
-      parsedAmounts = parsedAmounts.reverse() as [Decimal, Decimal]
-      isEmptyOne = true
-    } else if (parsedAmountB.isZero()) {
-      missingRange = [activeId + 1, binRange[1]]
-      binRange = [binRange[0], activeId]
-      parsedAmounts = parsedAmounts.reverse() as [Decimal, Decimal]
-      isEmptyOne = true
-    }
-    let res
-    switch (type) {
-      case LiquidityDistribution.SPOT: {
-        res = getUniformFromBinRange(activeId, binRange, parsedAmounts)
-        if (parsedAmountA.isZero()) {
-          res.distributionX.push(0n)
-        } else if (parsedAmountB.isZero()) {
-          res.distributionY.push(0n)
-        }
-        break
-      }
-
-      case LiquidityDistribution.BID_ASK: {
-        res = getBidAskFromBinRange(activeId, binRange, parsedAmounts)
-        break
-      }
-
-      case LiquidityDistribution.CURVE:
-      default:
-        const { alpha } = params as CreateCurveParams
-        res = getCurveFromBinRange(activeId, binRange, parsedAmounts, alpha)
-    }
-
-    res.distributionX = formatDistribution(res.distributionX.map((v) => BigInt(fromDecimalsAmount(v.toString(), 9).toFixed(0))))
-    res.distributionY = formatDistribution(res.distributionY.map((v) => BigInt(fromDecimalsAmount(v.toString(), 9).toFixed(0))))
-
-    if (isEmptyOne) {
-      const missingBins = createListBins(missingRange[0], missingRange[1])
-      const emptyDistribution = createEmptyDistribution(missingRange[0], missingRange[1])
-
-      if (parsedAmountA.isZero()) {
-        return {
-          deltaIds: missingBins.concat(res.deltaIds),
-          distributionX: emptyDistribution.concat(res.distributionX),
-          distributionY: emptyDistribution.concat(res.distributionY),
-        }
-      } else {
-        return {
-          deltaIds: res.deltaIds.concat(missingBins),
-          distributionX: res.distributionX.concat(emptyDistribution),
-          distributionY: res.distributionY.concat(emptyDistribution),
-        }
-      }
-    }
-
-    return res
-  }
-
-  /**
-   * @deprecated
-   * @param distribution
-   * @returns
-   */
-  function reverseDistribution(distribution: LiquidityDistributionParams): LiquidityDistributionParams {
-    return {
-      deltaIds: distribution.deltaIds,
-      distributionX: distribution.distributionY,
-      distributionY: distribution.distributionX,
-    }
-  }
-
-  const getUniformFromBinRange = (
-    activeId: number,
-    binRange: [from: number, to: number],
-    amounts: [AmountA: Decimal, AmountB: Decimal]
-  ): LiquidityDistributionParams => {
-    const ONE = BigInt(10) ** BigInt(18)
-
-    const deltaIds: number[] = []
-    const distributionX: bigint[] = []
-    const distributionY: bigint[] = []
-
-    const [amountX, amountY] = amounts
-
-    let nb_x = BigInt(0)
-    let nb_y = BigInt(0)
-
-    for (let binId = binRange[0]; binId <= binRange[1]; binId++) {
-      if (binId > activeId) {
-        nb_x += BigInt(2)
-      } else if (binId < activeId) {
-        nb_y += BigInt(2)
-      } else {
-        nb_x += BigInt(1)
-        nb_y += BigInt(1)
-      }
-    }
-
-    for (let binId = binRange[0]; binId <= binRange[1]; binId++) {
-      if (binId > activeId) {
-        distributionX.push((BigInt(2) * ONE) / nb_x)
-        distributionY.push(BigInt(0))
-      } else if (binId < activeId) {
-        distributionX.push(BigInt(0))
-        distributionY.push((BigInt(2) * ONE) / nb_y)
-      } else {
-        if (amountX.isZero()) {
-          distributionY.push((BigInt(2) * ONE) / nb_y)
-        } else if (amountY.isZero()) {
-          distributionX.push((BigInt(2) * ONE) / nb_x)
-        } else {
-          distributionX.push(ONE / nb_x)
-          distributionY.push(ONE / nb_x)
-        }
-      }
-      deltaIds.push(binId - activeId)
-    }
-
-    return {
-      deltaIds: deltaIds.map((v) => activeId + v),
-      distributionX: distributionY,
-      distributionY: distributionX,
-    }
-  }
-
-  const getBidAskFromBinRange = (
-    activeId: number,
-    binRange: [from: number, to: number],
-    parsedAmounts: [AmountA: Decimal, AmountB: Decimal]
-  ): LiquidityDistributionParams => {
-    const [parsedAmountA, parsedAmountB] = parsedAmounts
-
-    const deltaIds: number[] = []
-    const distributionX: bigint[] = []
-    const distributionY: bigint[] = []
-
-    let nb_x = 0
-    let nb_y = 0
-    for (let binId = binRange[0]; binId <= binRange[1]; binId++) {
-      const weight = Math.abs(binId - activeId) + 1
-
-      if (binId >= activeId) {
-        nb_x += 2 * weight
-      }
-      if (binId <= activeId) {
-        nb_y += 2 * weight
-      }
-      if (binId === activeId) {
-        if (parsedAmountB.greaterThan('0')) {
-          nb_x -= weight
-        }
-        if (parsedAmountA.greaterThan('0')) {
-          nb_y -= weight
-        }
-      }
-    }
-
-    for (let binId = binRange[0]; binId <= binRange[1]; binId++) {
-      let dist_x = BigInt(0)
-      let dist_y = BigInt(0)
-
-      const weight = parseEther(`${Math.abs(binId - activeId) + 1}`)
-
-      if (binId >= activeId && parsedAmountA.greaterThan('0')) {
-        dist_x = (BigInt(2) * weight) / BigInt(nb_x)
-      }
-
-      if (binId <= activeId && parsedAmountB.greaterThan('0')) {
-        dist_y = (BigInt(2) * weight) / BigInt(nb_y)
-      }
-
-      if (binId === activeId && parsedAmountA.greaterThan('0') && parsedAmountB.greaterThan('0')) {
-        dist_x /= BigInt(2)
-        dist_y /= BigInt(2)
-      }
-
-      if (dist_x > 0 || dist_y > 0) {
-        distributionX.push(dist_x)
-        distributionY.push(dist_y)
-        deltaIds.push(binId - activeId)
-      }
-    }
-
-    return {
-      deltaIds: deltaIds.map((v) => activeId + v),
-      distributionX: distributionY,
-      distributionY: distributionX,
-    }
-  }
-
-  /**
-   * Returns Curve distribution params for custom bin range
+   * Generate distribution for liquidity across bins
    *
-   * @param {number} activeId
-   * @param {number[]} binRange
-   * @param {CurrencyAmount[]} parsedAmounts
-   * @param {number} alpha
-   * @returns
+   * Rules:
+   * - ActiveId: The only bin that can contain BOTH X and Y tokens
+   * - Bins to the LEFT of activeId (id < activeId): Only Y tokens
+   * - Bins to the RIGHT of activeId (id > activeId): Only X tokens
+   *
+   * ActiveId Special Handling:
+   * - In SPOT: Total liquidity at activeId (X + Y) equals liquidity at any other bin
+   * - In CURVE: Gets proportional weight from both X and Y distributions based on curve
+   * - In BID_ASK: Gets minimal liquidity (bottom of the V shape)
+   *
+   * @param type - Type of distribution: SPOT, CURVE, or BID_ASK
+   * @param params - Distribution parameters
+   * @returns Distribution with deltaIds and percentage distributions
    */
-  const getCurveFromBinRange = (
-    activeId: number,
-    binRange: [from: number, to: number],
-    parsedAmounts: [AmountA: Decimal, AmountB: Decimal],
-    alpha: number = 1 / 10
-  ): LiquidityDistributionParams => {
-    if (alpha > 1) {
-      throw new Error('Alpha must be between 0 and 1')
+  export function createParams(type: DistributionType, params: DistributionParams): LiquidityDistributionParams {
+    const { activeId, binRange, parsedAmounts, alpha = 1 } = params
+    const [from, to] = binRange
+
+    // Validate range
+    if (from > to) {
+      throw new Error('Invalid bin range: from must be <= to')
     }
 
-    const [parsedAmountA, parsedAmountB] = parsedAmounts
-
-    const ONE = BigInt(10) ** BigInt(18)
-
+    // Generate deltaIds (relative to activeId)
     const deltaIds: number[] = []
+    for (let id = from; id <= to; id++) {
+      deltaIds.push(id - activeId)
+    }
+
+    let distributionX: bigint[] = []
+    let distributionY: bigint[] = []
+
+    switch (type) {
+      case 'SPOT':
+        ;({ distributionX, distributionY } = generateSpotDistribution(deltaIds, activeId, parsedAmounts))
+        break
+
+      case 'CURVE':
+        ;({ distributionX, distributionY } = generateCurveDistribution(deltaIds, activeId, parsedAmounts, alpha))
+        break
+
+      case 'BID_ASK':
+        ;({ distributionX, distributionY } = generateBidAskDistribution(deltaIds, activeId, parsedAmounts))
+        break
+
+      default:
+        throw new Error(`Unknown distribution type: ${type}`)
+    }
+
+    return { deltaIds: deltaIds.map((v) => v + activeId), distributionX, distributionY, ids: deltaIds.map((v) => v + activeId) }
+  }
+
+  /**
+   * SPOT distribution: Equal token amounts across all bins
+   * The total liquidity at activeId (X + Y) equals the liquidity at any other bin
+   */
+  function generateSpotDistribution(
+    deltaIds: number[],
+    activeId: number,
+    parsedAmounts: [Decimal, Decimal]
+  ): { distributionX: bigint[]; distributionY: bigint[] } {
+    const [amountX, amountY] = parsedAmounts
+    const hasX = amountX.gt(0)
+    const hasY = amountY.gt(0)
+
     const distributionX: bigint[] = []
     const distributionY: bigint[] = []
 
-    Big.RM = Big.roundDown
-    const getGaussianDistribution = (x: number, sigma: number): bigint => {
-      if (sigma === 0) return BigInt(10 ** 18)
+    // Count eligible bins for each token
+    let xBinCount = 0
+    let yBinCount = 0
+    let hasActiveId = false
 
-      const val = new Big(Math.exp(-((x / sigma) ** 2) / 2)).times(10 ** 18).round()
-      const int = BigInt(val.toString())
-      return int
+    for (const deltaId of deltaIds) {
+      const currentId = activeId + deltaId
+      if (currentId > activeId && hasX) xBinCount++ // Right bins for X
+      if (currentId < activeId && hasY) yBinCount++ // Left bins for Y
+      if (currentId === activeId) hasActiveId = true
     }
 
-    const getSigma = (radius: number, alpha: number): number => {
-      const denominator = Math.sqrt(-2 * Math.log(alpha))
-      if (denominator === 0) return 0
-
-      return radius / denominator
+    // For activeId: it should get half from X distribution and half from Y distribution
+    // This ensures total liquidity at activeId equals other bins
+    if (hasActiveId) {
+      if (hasX) xBinCount += 0.5
+      if (hasY) yBinCount += 0.5
     }
 
-    const radius_x = Math.abs(binRange[1] - activeId)
-    const radius_y = Math.abs(binRange[0] - activeId)
+    // Calculate distributions (already accounts for activeId's half weight)
+    const xPerBin = xBinCount > 0 ? Number(PRECISION) / xBinCount : 0
+    const yPerBin = yBinCount > 0 ? Number(PRECISION) / yBinCount : 0
 
-    const sigma_x = getSigma(radius_x, alpha)
-    const sigma_y = getSigma(radius_y, alpha)
+    // For activeId: since we counted it as 0.5 in each distribution,
+    // it should get (xPerBin * 0.5) and (yPerBin * 0.5)
+    const xActiveAmount = hasActiveId && hasX ? xPerBin * 0.5 : 0
+    const yActiveAmount = hasActiveId && hasY ? yPerBin * 0.5 : 0
 
-    let nb_x = BigInt(0)
-    let nb_y = BigInt(0)
+    for (const deltaId of deltaIds) {
+      const currentId = activeId + deltaId
 
-    for (let binId = binRange[0]; binId <= binRange[1]; binId++) {
-      const deltaId = binId - activeId
-      let dist_x = BigInt(0)
-      let dist_y = BigInt(0)
-
-      if (deltaId >= 0 && parsedAmountA.greaterThan('0')) {
-        dist_x = BigInt(2) * getGaussianDistribution(deltaId, sigma_x)
-      }
-
-      if (deltaId <= 0 && parsedAmountB.greaterThan('0')) {
-        dist_y = BigInt(2) * getGaussianDistribution(deltaId, sigma_y)
-      }
-
-      if (deltaId === 0 && parsedAmountA.greaterThan('0') && parsedAmountB.greaterThan('0')) {
-        dist_x /= BigInt(2)
-        dist_y /= BigInt(2)
-      }
-
-      nb_x += dist_x
-      nb_y += dist_y
-
-      if (dist_x > 0 || dist_y > 0) {
-        distributionX.push(dist_x)
-        distributionY.push(dist_y)
-        deltaIds.push(deltaId)
-      }
-    }
-
-    for (let i = 0; i < distributionX.length; i++) {
-      if (nb_x > 0) {
-        distributionX[i] = (BigInt(distributionX[i]) * ONE) / BigInt(nb_x)
+      if (currentId < activeId) {
+        // Left of active: only Y tokens
+        distributionX.push(0n)
+        if (hasY) {
+          distributionY.push(BigInt(Math.floor(yPerBin)))
+        } else {
+          distributionY.push(0n)
+        }
+      } else if (currentId > activeId) {
+        // Right of active: only X tokens
+        if (hasX) {
+          distributionX.push(BigInt(Math.floor(xPerBin)))
+        } else {
+          distributionX.push(0n)
+        }
+        distributionY.push(0n)
       } else {
-        distributionX[i] = BigInt(0)
-      }
-      if (nb_y > 0) {
-        distributionY[i] = (BigInt(distributionY[i]) * ONE) / BigInt(nb_y)
-      } else {
-        distributionY[i] = BigInt(0)
+        // Active bin: gets calculated share from each token type
+        distributionX.push(BigInt(Math.floor(xActiveAmount)))
+        distributionY.push(BigInt(Math.floor(yActiveAmount)))
       }
     }
 
-    return {
-      deltaIds: deltaIds.map((v) => activeId + v),
-      distributionX: distributionY,
-      distributionY: distributionX,
+    // Normalize to ensure sum equals PRECISION
+    if (hasX) normalizeDistribution(distributionX)
+    if (hasY) normalizeDistribution(distributionY)
+
+    return { distributionX, distributionY }
+  }
+
+  /**
+   * CURVE distribution: Normal/Gaussian distribution centered around activeId
+   * The total liquidity at activeId comes from both X and Y distributions
+   */
+  function generateCurveDistribution(
+    deltaIds: number[],
+    activeId: number,
+    parsedAmounts: [Decimal, Decimal],
+    alpha: number
+  ): { distributionX: bigint[]; distributionY: bigint[] } {
+    const [amountX, amountY] = parsedAmounts
+    const hasX = amountX.gt(0)
+    const hasY = amountY.gt(0)
+
+    const distributionX: bigint[] = []
+    const distributionY: bigint[] = []
+
+    // Calculate weights using normal distribution
+    const weights: number[] = []
+    let totalWeightX = 0
+    let totalWeightY = 0
+    let activeIndex = -1
+
+    for (let i = 0; i < deltaIds.length; i++) {
+      const deltaId = deltaIds[i]
+      const currentId = activeId + deltaId
+
+      if (currentId === activeId) activeIndex = i
+
+      // Normal distribution formula: e^(-(x^2)/(2*sigma^2))
+      const sigma = deltaIds.length / (4 * alpha)
+      const weight = Math.exp(-(deltaId ** 2) / (2 * sigma ** 2))
+      weights.push(weight)
+
+      // Accumulate weights for normalization
+      // X tokens go to bins >= activeId, but activeId only gets half weight
+      if (currentId > activeId && hasX) {
+        totalWeightX += weight
+      } else if (currentId === activeId) {
+        if (hasX) totalWeightX += weight / 2
+        if (hasY) totalWeightY += weight / 2
+      }
+
+      // Y tokens go to bins <= activeId, but activeId only gets half weight
+      if (currentId < activeId && hasY) {
+        totalWeightY += weight
+      }
+    }
+
+    // Normalize and convert to bigint distributions
+    for (let i = 0; i < deltaIds.length; i++) {
+      const currentId = activeId + deltaIds[i]
+      const weight = weights[i]
+
+      if (currentId < activeId) {
+        // Left of active: only Y tokens
+        distributionX.push(0n)
+        if (hasY && totalWeightY > 0) {
+          const yDist = BigInt(Math.floor(Number(PRECISION) * (weight / totalWeightY)))
+          distributionY.push(yDist)
+        } else {
+          distributionY.push(0n)
+        }
+      } else if (currentId > activeId) {
+        // Right of active: only X tokens
+        if (hasX && totalWeightX > 0) {
+          const xDist = BigInt(Math.floor(Number(PRECISION) * (weight / totalWeightX)))
+          distributionX.push(xDist)
+        } else {
+          distributionX.push(0n)
+        }
+        distributionY.push(0n)
+      } else {
+        // Active bin: half weight from each distribution
+        if (hasX && totalWeightX > 0) {
+          const xDist = BigInt(Math.floor(Number(PRECISION) * (weight / 2 / totalWeightX)))
+          distributionX.push(xDist)
+        } else {
+          distributionX.push(0n)
+        }
+
+        if (hasY && totalWeightY > 0) {
+          const yDist = BigInt(Math.floor(Number(PRECISION) * (weight / 2 / totalWeightY)))
+          distributionY.push(yDist)
+        } else {
+          distributionY.push(0n)
+        }
+      }
+    }
+
+    // Adjust to ensure sum equals PRECISION for non-zero amounts
+    if (hasX) normalizeDistribution(distributionX)
+    if (hasY) normalizeDistribution(distributionY)
+
+    return { distributionX, distributionY }
+  }
+
+  /**
+   * BID_ASK distribution: V-shaped distribution with liquidity decreasing towards activeId
+   * Creates a pattern similar to order book with bids and asks
+   * ActiveId gets minimal liquidity (bottom of the V)
+   */
+  function generateBidAskDistribution(
+    deltaIds: number[],
+    activeId: number,
+    parsedAmounts: [Decimal, Decimal]
+  ): { distributionX: bigint[]; distributionY: bigint[] } {
+    const [amountX, amountY] = parsedAmounts
+    const hasX = amountX.gt(0)
+    const hasY = amountY.gt(0)
+
+    const distributionX: bigint[] = []
+    const distributionY: bigint[] = []
+
+    const numBins = deltaIds.length
+
+    // Split bins into bid (left of active) and ask (right of active) sides
+    const bidBins: number[] = [] // For Y tokens (left side)
+    const askBins: number[] = [] // For X tokens (right side)
+    let activeIndex = -1
+
+    for (let i = 0; i < numBins; i++) {
+      const currentId = activeId + deltaIds[i]
+      if (currentId < activeId) {
+        bidBins.push(i)
+      } else if (currentId > activeId) {
+        askBins.push(i)
+      } else {
+        activeIndex = i
+      }
+    }
+
+    // Initialize all distributions to 0
+    for (let i = 0; i < numBins; i++) {
+      distributionX.push(0n)
+      distributionY.push(0n)
+    }
+
+    // Reserve for activeId (1% each if present)
+    const activeReserveX = hasX && activeIndex !== -1 ? 0.01 : 0
+    const activeReserveY = hasY && activeIndex !== -1 ? 0.01 : 0
+
+    // Create bid distribution (Y tokens on left side)
+    // Liquidity decreases linearly as we approach activeId
+    if (bidBins.length > 0 && hasY) {
+      let totalBidWeight = 0
+      const bidWeights: number[] = []
+
+      for (let i = 0; i < bidBins.length; i++) {
+        // Weight increases with distance from activeId (leftmost bins get highest weight)
+        const distanceFromActive = bidBins.length - i
+        const weight = distanceFromActive
+        bidWeights.push(weight)
+        totalBidWeight += weight
+      }
+
+      // Apply normalized weights to Y distribution (use 99% if activeId exists)
+      const bidPortion = 1 - activeReserveY
+      for (let i = 0; i < bidBins.length; i++) {
+        const idx = bidBins[i]
+        const normalizedWeight = bidWeights[i] / totalBidWeight
+        distributionY[idx] = BigInt(Math.floor(Number(PRECISION) * normalizedWeight * bidPortion))
+      }
+    }
+
+    // Create ask distribution (X tokens on right side)
+    // Liquidity decreases linearly as we approach activeId
+    if (askBins.length > 0 && hasX) {
+      let totalAskWeight = 0
+      const askWeights: number[] = []
+
+      for (let i = 0; i < askBins.length; i++) {
+        // Weight increases with distance from activeId (rightmost bins get highest weight)
+        const distanceFromActive = i + 1
+        const weight = distanceFromActive
+        askWeights.push(weight)
+        totalAskWeight += weight
+      }
+
+      // Apply normalized weights to X distribution (use 99% if activeId exists)
+      const askPortion = 1 - activeReserveX
+      for (let i = 0; i < askBins.length; i++) {
+        const idx = askBins[i]
+        const normalizedWeight = askWeights[i] / totalAskWeight
+        distributionX[idx] = BigInt(Math.floor(Number(PRECISION) * normalizedWeight * askPortion))
+      }
+    }
+
+    // Handle active bin if present (gets minimal liquidity - 1% each)
+    if (activeIndex !== -1) {
+      if (hasX) {
+        distributionX[activeIndex] = BigInt(Math.floor(Number(PRECISION) * activeReserveX))
+      }
+      if (hasY) {
+        distributionY[activeIndex] = BigInt(Math.floor(Number(PRECISION) * activeReserveY))
+      }
+    }
+
+    // Normalize to ensure sum equals PRECISION for non-zero amounts
+    if (hasX) normalizeDistribution(distributionX)
+    if (hasY) normalizeDistribution(distributionY)
+
+    return { distributionX, distributionY }
+  }
+
+  /**
+   * Normalize distribution to ensure sum equals PRECISION (1e9)
+   */
+  function normalizeDistribution(distribution: bigint[]): void {
+    const sum = distribution.reduce((acc, val) => acc + val, 0n)
+
+    // If sum is 0, don't normalize (means no tokens to distribute)
+    if (sum === 0n) return
+
+    const diff = PRECISION - sum
+
+    // Find the index with the largest value to adjust
+    let maxIndex = -1
+    let maxValue = 0n
+    for (let i = 0; i < distribution.length; i++) {
+      if (distribution[i] > maxValue) {
+        maxValue = distribution[i]
+        maxIndex = i
+      }
+    }
+
+    // Add the difference to the largest value
+    if (maxIndex >= 0 && maxValue > 0n) {
+      distribution[maxIndex] += diff
     }
   }
 }

@@ -1,12 +1,11 @@
 import FerraClmmSDK, { SdkOptions } from '../main'
-import { checkInvalidSuiAddress } from '../utils'
+import { checkValidSuiAddress } from '../utils'
 
 const SDKConfig = {
   clmmConfig: {
-    pools_id: '0xcf8cd5934d0ba8ab70a6db533ac4ff20b0ccd55e54b82688811007723cf8e468',
-    global_config_id: '0x32bcdffb86333e3092ff3aa2d97847cde7a36724a026844732ade63a42fc8b45',
-    global_rewarder_vault_id: '0x97e1f1e0931eed67806e598fdf33b699cb988ae04558ff0ae7d74d23cab06d42',
-    admin_cap_id: '0x124fde729c561a4dc1bdcf2415fe365c67bf50a1352f2bae890da1ebddbb1ec4',
+    pools_id: '0x73d72382b41b5c50442722ecab7962fc3ef2bad7e91e59ea26bcba897bcd1826',
+    global_config_id: '0x2cd8382c19e6994f16df204e9b8cddd04bdc486c251de75ac66ac4e48e3e7081',
+    global_rewarder_vault_id: '0xccb4f7b00aecc72634ca720893020c620fe4c0a4d7a7b0c59ec1329fd8fe3d1a'
   }
 }
 
@@ -17,15 +16,15 @@ export const clmmMainnet: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   clmm_pool: {
-    package_id: '0x677a8ee8489097070f95ffdac5c385ee1ee84e1056ea3d29ede5e09f3e612420',
-    published_at: '0x677a8ee8489097070f95ffdac5c385ee1ee84e1056ea3d29ede5e09f3e612420',
+    package_id: '0xc895342d87127c9c67b76c8ad7f9a22b8bfe1dcdc2c5af82bd85266783115e31',
+    published_at: '0xc895342d87127c9c67b76c8ad7f9a22b8bfe1dcdc2c5af82bd85266783115e31',
     config: SDKConfig.clmmConfig,
   },
   integrate: {
-    package_id: '0x97084e44e7778be7414a8fa00623a6274f0161ab0735390a6f2a569e1bdaef7f',
-    published_at: '0x97084e44e7778be7414a8fa00623a6274f0161ab0735390a6f2a569e1bdaef7f',
+    package_id: '0x1dd5538aeb1066315969d87ae9a920ce2692824385342f49854b764ac730a64b',
+    published_at: '0x1dd5538aeb1066315969d87ae9a920ce2692824385342f49854b764ac730a64b',
   },
-  swapCountUrl: 'https://api-beta.ferra.xyz/clmm/swap/pools'
+  swapCountUrl: 'https://api.ferra.ag/clmm/swap/pools'
 }
 
 /**
@@ -42,7 +41,7 @@ export function initMainnetSDK(fullNodeUrl?: string, wallet?: string): FerraClmm
     clmmMainnet.fullRpcUrl = fullNodeUrl
   }
   const sdk = new FerraClmmSDK(clmmMainnet)
-  if (wallet && checkInvalidSuiAddress(wallet)) {
+  if (wallet && checkValidSuiAddress(wallet)) {
     sdk.senderAddress = wallet
   }
   return sdk

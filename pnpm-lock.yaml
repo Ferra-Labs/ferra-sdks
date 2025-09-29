@@ -181,7 +181,7 @@ importers:
         specifier: ^7.2.0
         version: 7.3.0(ts-node@10.9.2(@types/node@20.19.1)(typescript@5.8.3))(typescript@5.8.3)
       tsx:
-        specifier: ^4.19.4
+        specifier: ^4.20.3
         version: 4.20.3
       typedoc:
         specifier: ^0.25.13
@@ -325,9 +325,6 @@ importers:
       axios:
         specifier: ^1.4.0
         version: 1.10.0
-      big.js:
-        specifier: ^7.0.1
-        version: 7.0.1
       bn.js:
         specifier: ^5.2.1
         version: 5.2.2
@@ -368,9 +365,6 @@ importers:
       '@mysten/sui':
         specifier: ^1.21.1
         version: 1.33.0(typescript@5.8.3)
-      '@types/big.js':
-        specifier: ^6.2.2
-        version: 6.2.2
       '@types/cors':
         specifier: ^2.8.13
         version: 2.8.19
@@ -1211,7 +1205,7 @@ packages:
     resolution: {integrity: sha512-V6hNQrFe0IT85iZquBJ2BccywQtLXCmq5jojRsdy1iFTZCve2h+Aj0kE7z9+b8X0QD7weg/6KC9JMUa1j05neQ==}
     engines: {node: '>=18'}
 
-  '@mysten/utils@0.1.0':
+  '@mysten/utils@0.1.6':
     resolution: {integrity: sha512-nFxqArh4cr629elLsIk7UZmx5dFVshblwrfwaG7Dm2L/ii2C65bhK5tdTs6UiC3K0tCr8q8svrgzXyF9L0CN/A==}
 
   '@noble/curves@1.9.2':
@@ -2264,7 +2258,7 @@ packages:
     peerDependencies:
       '@types/eslint': '>=8.0.0'
       eslint: '>=8.0.0'
-      eslint-config-prettier: '>= 7.0.0 <10.0.0 || >=10.1.0'
+      eslint-config-prettier: '>= 7.0.0 <10.0.0 || >=10.1.6'
       prettier: '>=3.0.0'
     peerDependenciesMeta:
       '@types/eslint':
@@ -2474,7 +2468,7 @@ packages:
     resolution: {integrity: sha512-9fSjSaos/fRIVIp+xSJlE6lfwhES7LNtKaCBIamHsjr2na1BiABJPo0mOjjz8GJDURarmCPGqaiVg5mfjb98CQ==}
     engines: {node: '>= 0.4'}
 
-  get-package-type@0.1.0:
+  get-package-type@0.1.6:
     resolution: {integrity: sha512-pjzuKtY64GYfWizNAJ0fr9VqttZkNiK2iS430LtIHzjBEr6bX8Am2zm4sW4Ro5wjWW5cAlRL1qAMTcXbjNAO2Q==}
     engines: {node: '>=8.0.0'}
 
@@ -3329,7 +3323,7 @@ packages:
     resolution: {integrity: sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==}
     engines: {node: 4.x || >=6.0.0}
     peerDependencies:
-      encoding: ^0.1.0
+      encoding: ^0.1.6
     peerDependenciesMeta:
       encoding:
         optional: true
@@ -4414,7 +4408,7 @@ packages:
     resolution: {integrity: sha512-Ux4ygGWsu2c7isFWe8Yu1YluJmqVhxqK2cLXNQA5AcC3QfbGNpM7fu0Y8b/z16pXLnFxZYvWhd3fhBY9DLmC6Q==}
     engines: {node: '>=6'}
 
-  yocto-queue@0.1.0:
+  yocto-queue@0.1.6:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
@@ -4828,7 +4822,7 @@ snapshots:
       '@types/node': 20.5.1
       chalk: 4.1.2
       cosmiconfig: 8.3.6(typescript@5.8.3)
-      cosmiconfig-typescript-loader: 4.4.0(@types/node@20.5.1)(cosmiconfig@8.3.6(typescript@5.8.3))(ts-node@10.9.2(@types/node@20.5.1)(typescript@5.8.3))(typescript@5.8.3)
+      cosmiconfig-typescript-loader: 4.4.0(@types/node@20.5.1)(cosmiconfig@8.3.6(typescript@5.8.3))(ts-node@10.9.2(@types/node@20.19.1)(typescript@5.8.3))(typescript@5.8.3)
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
       lodash.uniq: 4.5.0
@@ -5097,7 +5091,7 @@ snapshots:
     dependencies:
       camelcase: 5.3.1
       find-up: 4.1.0
-      get-package-type: 0.1.0
+      get-package-type: 0.1.6
       js-yaml: 3.14.1
       resolve-from: 5.0.0
 
@@ -5305,14 +5299,14 @@ snapshots:
 
   '@mysten/bcs@1.6.3':
     dependencies:
-      '@mysten/utils': 0.1.0
+      '@mysten/utils': 0.1.6
       '@scure/base': 1.2.6
 
   '@mysten/sui@1.33.0(typescript@5.8.3)':
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@16.11.0)
       '@mysten/bcs': 1.6.3
-      '@mysten/utils': 0.1.0
+      '@mysten/utils': 0.1.6
       '@noble/curves': 1.9.2
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
@@ -5327,7 +5321,7 @@ snapshots:
       - '@gql.tada/vue-support'
       - typescript
 
-  '@mysten/utils@0.1.0':
+  '@mysten/utils@0.1.6':
     dependencies:
       '@scure/base': 1.2.6
 
@@ -6162,7 +6156,7 @@ snapshots:
       object-assign: 4.1.1
       vary: 1.1.2
 
-  cosmiconfig-typescript-loader@4.4.0(@types/node@20.5.1)(cosmiconfig@8.3.6(typescript@5.8.3))(ts-node@10.9.2(@types/node@20.5.1)(typescript@5.8.3))(typescript@5.8.3):
+  cosmiconfig-typescript-loader@4.4.0(@types/node@20.5.1)(cosmiconfig@8.3.6(typescript@5.8.3))(ts-node@10.9.2(@types/node@20.19.1)(typescript@5.8.3))(typescript@5.8.3):
     dependencies:
       '@types/node': 20.5.1
       cosmiconfig: 8.3.6(typescript@5.8.3)
@@ -6814,7 +6808,7 @@ snapshots:
       hasown: 2.0.2
       math-intrinsics: 1.1.0
 
-  get-package-type@0.1.0: {}
+  get-package-type@0.1.6: {}
 
   get-pkg-repo@4.2.1:
     dependencies:
@@ -7953,7 +7947,7 @@ snapshots:
 
   p-limit@3.1.0:
     dependencies:
-      yocto-queue: 0.1.0
+      yocto-queue: 0.1.6
 
   p-locate@2.0.0:
     dependencies:
@@ -9012,4 +9006,4 @@ snapshots:
 
   yn@3.1.1: {}
 
-  yocto-queue@0.1.0: {}
+  yocto-queue@0.1.6: {}

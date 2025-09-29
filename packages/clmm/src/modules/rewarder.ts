@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import BN from 'bn.js'
 import { Transaction, TransactionArgument, TransactionObjectArgument } from '@mysten/sui/transactions'
-import { BuildCoinResult, checkInvalidSuiAddress, extractStructTagFromType, normalizeCoinType, TransactionUtil } from '../utils'
+import { BuildCoinResult, checkValidSuiAddress, extractStructTagFromType, normalizeCoinType, TransactionUtil } from '../utils'
 import { ClmmFetcherModule, ClmmIntegratePoolModule, CLOCK_ADDRESS } from '../types/sui'
 import { getRewardInTickRange } from '../utils/tick'
 import { MathUtil, ONE, ZERO } from '../math/utils'
@@ -110,128 +110,6 @@ export class RewarderModule implements IModule {
     }
 
     return currentPool
-  }
-
-  /**
-   * Calculates reward amounts owed to a specific position
-   * @deprecated Use fetchPosRewardersAmount() for better performance and accuracy
-   * @param poolID - The pool object ID
-   * @param positionHandle - Position collection handle
-   * @param positionID - Position object ID
-   * @returns Array of reward amounts for each rewarder
-   */
-  async posRewardersAmount(poolID: string, positionHandle: string, positionID: string) {
-    const currentTime = Date.parse(new Date().toString())
-    const pool: Pool = await this.updatePoolRewarder(poolID, new BN(currentTime))
-    const position = await this.sdk.Position.getPositionRewarders(positionHandle, positionID)
-
-    if (position === undefined) {
-      return []
-    }
-
-    const ticksHandle = pool.ticks_handle
-    const tickLower = await this.sdk.Pool.getTickDataByIndex(ticksHandle, position.tick_lower_index)
-    const tickUpper = await this.sdk.Pool.getTickDataByIndex(ticksHandle, position.tick_upper_index)
-
-    const amountOwed = this.posRewardersAmountInternal(pool, position, tickLower!, tickUpper!)
-    return amountOwed
-  }
-
-  /**
-   * Calculates total reward amounts for all positions in a pool owned by an account
-   * @deprecated Use fetchPosRewardersAmount() for better performance and accuracy
-   * @param accountAddress - Owner's address
-   * @param poolID - The pool object ID
-   * @returns Array of total reward amounts for each rewarder
-   */
-  async poolRewardersAmount(accountAddress: string, poolID: string) {
-    const currentTime = Date.parse(new Date().toString())
-    const pool: Pool = await this.updatePoolRewarder(poolID, new BN(currentTime))
-
-    const positions = await this.sdk.Position.getPositionList(accountAddress, [poolID])
-    const tickDatas = await this.getPoolLowerAndUpperTicks(pool.ticks_handle, positions)
-
-    const rewarderAmount = [ZERO, ZERO, ZERO]
-
-    for (let i = 0; i < positions.length; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      const posRewarderInfo: any = await this.posRewardersAmountInternal(pool, positions[i], tickDatas[0][i], tickDatas[1][i])
-      for (let j = 0; j < 3; j += 1) {
-        rewarderAmount[j] = rewarderAmount[j].add(posRewarderInfo[j].amount_owed)
-      }
-    }
-
-    return rewarderAmount
-  }
-
-  /**
-   * Internal method to calculate reward amounts for a position
-   * Uses tick data and growth globals to compute accurate rewards
-   * @param pool - Pool object
-   * @param position - Position reward data
-   * @param tickLower - Lower tick data
-   * @param tickUpper - Upper tick data
-   * @returns Array of reward amounts owed for each rewarder
-   */
-  private posRewardersAmountInternal(pool: Pool, position: PositionReward, tickLower: TickData, tickUpper: TickData): RewarderAmountOwed[] {
-    const tickLowerIndex = position.tick_lower_index
-    const tickUpperIndex = position.tick_upper_index
-    const rewardersInside = getRewardInTickRange(pool, tickLower, tickUpper, tickLowerIndex, tickUpperIndex, this.growthGlobal)
-
-    const growthInside = []
-    const AmountOwed = []
-
-    // Process first rewarder if exists
-    if (rewardersInside.length > 0) {
-      let growthDelta0 = MathUtil.subUnderflowU128(rewardersInside[0], new BN(position.reward_growth_inside_0))
-
-      // Cap growth delta to prevent overflow
-      if (growthDelta0.gt(new BN('3402823669209384634633745948738404'))) {
-        growthDelta0 = ONE
-      }
-
-      const amountOwed_0 = MathUtil.checkMulShiftRight(new BN(position.liquidity), growthDelta0, 64, 128)
-      growthInside.push(rewardersInside[0])
-      AmountOwed.push({
-        amount_owed: new BN(position.reward_amount_owed_0).add(amountOwed_0),
-        coin_address: pool.rewarder_infos[0].coinAddress,
-      })
-    }
-
-    // Process second rewarder if exists
-    if (rewardersInside.length > 1) {
-      let growthDelta_1 = MathUtil.subUnderflowU128(rewardersInside[1], new BN(position.reward_growth_inside_1))
-      // Cap growth delta to prevent overflow
-      if (growthDelta_1.gt(new BN('3402823669209384634633745948738404'))) {
-        growthDelta_1 = ONE
-      }
-
-      const amountOwed_1 = MathUtil.checkMulShiftRight(new BN(position.liquidity), growthDelta_1, 64, 128)
-      growthInside.push(rewardersInside[1])
-
-      AmountOwed.push({
-        amount_owed: new BN(position.reward_amount_owed_1).add(amountOwed_1),
-        coin_address: pool.rewarder_infos[1].coinAddress,
-      })
-    }
-
-    // Process third rewarder if exists
-    if (rewardersInside.length > 2) {
-      let growthDelta_2 = MathUtil.subUnderflowU128(rewardersInside[2], new BN(position.reward_growth_inside_2))
-      // Cap growth delta to prevent overflow
-      if (growthDelta_2.gt(new BN('3402823669209384634633745948738404'))) {
-        growthDelta_2 = ONE
-      }
-
-      const amountOwed_2 = MathUtil.checkMulShiftRight(new BN(position.liquidity), growthDelta_2, 64, 128)
-      growthInside.push(rewardersInside[2])
-
-      AmountOwed.push({
-        amount_owed: new BN(position.reward_amount_owed_2).add(amountOwed_2),
-        coin_address: pool.rewarder_infos[2].coinAddress,
-      })
-    }
-    return AmountOwed
   }
 
   /**
@@ -400,7 +278,7 @@ export class RewarderModule implements IModule {
       })
     }
 
-    if (!checkInvalidSuiAddress(simulationAccount.address)) {
+    if (!checkValidSuiAddress(simulationAccount.address)) {
       throw new ClmmpoolsError(
         `this config simulationAccount: ${simulationAccount.address} is not set right`,
         ConfigErrorCode.InvalidSimulateAccount
@@ -519,7 +397,7 @@ export class RewarderModule implements IModule {
    * @returns Transaction object for reward collection
    */
   async collectRewarderTransactionPayload(params: CollectRewarderParams, tx?: Transaction): Promise<Transaction> {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
@@ -547,7 +425,7 @@ export class RewarderModule implements IModule {
     inputCoinA?: TransactionObjectArgument,
     inputCoinB?: TransactionObjectArgument
   ) {
-    if (!checkInvalidSuiAddress(this.sdk.senderAddress)) {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
       throw new ClmmpoolsError(
         'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress

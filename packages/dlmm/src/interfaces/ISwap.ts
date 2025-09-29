@@ -16,6 +16,8 @@ export type PrepareSwapParams = {
 export type CalculateSwapParams = {
   amount: bigint;
   xtoy?: boolean;
+  decimalsA: number;
+  decimalsB: number;
   swapBins: LbPairBinData[]
 }
 
@@ -44,6 +46,7 @@ export type CalculateRatesResult = {
    * Indicates if the estimated amount exceeds the limit.
    */
   isExceed: boolean
+  isMaxLoop: boolean
 
   /**
    * The extra compute limit.

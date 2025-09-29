@@ -1,6 +1,6 @@
 import { LBPair, LbPairBinData } from '../interfaces'
 
-const MAX_LOOP_ITERATIONS = 255
+const MAX_LOOP_ITERATIONS = 70
 const SCALE_OFFSET_64X64 = 64
 const MAX_U64 = BigInt('0xffffffffffffffff')
 const MAX_FEE = 100_000_000n
@@ -17,7 +17,7 @@ export namespace SwapUtils {
     bins: LbPairBinData[],
     amount_in: bigint,
     swap_for_y: boolean
-  ): [bigint, bigint, bigint, bigint] {
+  ): [bigint, bigint, bigint, bigint, isMaxLoop: boolean] {
     const now = Date.now()
 
     bins = sortBins(bins)
@@ -42,7 +42,10 @@ export namespace SwapUtils {
     let iterations = 0n
 
     while (true) {
-      assert!(iterations < MAX_LOOP_ITERATIONS, 'E_MAX_LOOP_ITERATIONS')
+      if (iterations >= MAX_LOOP_ITERATIONS) {
+        break
+      }
+
       iterations = iterations + 1n
 
       if (binMap.has(id)) {
@@ -86,6 +89,7 @@ export namespace SwapUtils {
       swap_for_y ? amounts_out_y : amounts_out_x,
       swap_for_y ? total_fees_x : total_fees_y,
       id,
+      iterations >= 70,
     ]
   }
 }
@@ -148,7 +152,7 @@ function get_swap_amounts(
   let max_amount_in_without_fee = max_input_for_exact_output(bin_reserve_out, price, swap_for_y)
 
   // Calculate fees
-  let total_fee = get_total_fee(parameters, bin_step)
+  let total_fee = get_total_fee_rate(parameters, bin_step)
   let max_fee = get_fee_amount(max_amount_in_without_fee, total_fee)
   let max_amount_in_with_fee = add_u64(max_amount_in_without_fee, max_fee)
 
@@ -164,8 +168,9 @@ function get_swap_amounts(
     if (amount_in_available >= max_amount_in_with_fee) {
       return [max_amount_in_with_fee, bin_reserve_out, max_fee]
     } else {
-      let fee = get_fee_amount_from(amount_in_available, total_fee)
-
+      let fee = get_fee_amount_inclusive(amount_in_available, total_fee)
+      console.log('fee', fee);
+      
       let amount_in_without_fee = sub_u64(amount_in_available, fee)
 
       let amount_out = swap_amount_out(amount_in_without_fee, price, swap_for_y)
@@ -202,6 +207,27 @@ function get_swap_amounts(
   assert!(new_liquidity <= MAX_LIQUIDITY_PER_BIN, 'E_MAX_LIQUIDITY_PER_BIN_EXCEEDED')
 
   return [amounts_in_with_fees_x, amounts_in_with_fees_y, amounts_out_of_bin_x, amounts_out_of_bin_y, total_fees_x, total_fees_y]
+}
+
+function get_fee_amount_inclusive(amount_with_fees: bigint, total_fee_rate: bigint): bigint {
+  assert!(total_fee_rate < PRECISION, 'E_FEE_TOO_HIGH')
+
+  let fee_amount = mul_div_round_up_u128(amount_with_fees, total_fee_rate, PRECISION)
+  return u128_to_u64(fee_amount)
+}
+
+function mul_div_round_up_u128(a: bigint, b: bigint, c: bigint): bigint {
+  assert!(c > 0, 'E_DIVISION_BY_ZERO')
+
+  if (a == 0n || b == 0n) return 0n
+
+  let ab = a * b
+  return u256_to_u128((ab - 1n) / c + 1n)
+}
+
+function u256_to_u128(value: bigint): bigint {
+  assert!(value <= (MAX_U128 as bigint), 'E_OVERFLOW')
+  return value as bigint
 }
 
 function liquidity_from_amounts(x: bigint, y: bigint, price: bigint): bigint {
@@ -287,7 +313,7 @@ function get_fee_amount(amount: bigint, total_fee: bigint): bigint {
   return u128_to_u64(fee_amount)
 }
 
-function get_total_fee(params: PairParameters, bin_step: bigint): bigint {
+function get_total_fee_rate(params: PairParameters, bin_step: bigint): bigint {
   let base = get_base_fee(params, bin_step)
   let variable = get_variable_fee(params, bin_step)
   const total = add_u64(base, variable)
@@ -298,6 +324,26 @@ function get_total_fee(params: PairParameters, bin_step: bigint): bigint {
 
   return total
 }
+
+function x_from_y_price(y: bigint, price: bigint): bigint {
+  if (y == 0n || price == 0n) {
+    return 0n
+  }
+
+  // y / price = (y << 64) / price
+  let y_shifted = y << BigInt(SCALE_OFFSET_64X64)
+  return y_shifted / price
+}
+
+
+function y_from_x_price(x: bigint, price: bigint): bigint {
+  if (x == 0n || price == 0n) {
+    return 0n
+  }
+
+  return (x * price) >> BigInt(SCALE_OFFSET_64X64)
+}
+
 
 function get_variable_fee(params: PairParameters, bin_step: bigint): bigint {
   let variable_fee_control = BigInt(params.variable_fee_control)
@@ -356,7 +402,7 @@ function get_base_fee(params: PairParameters, bin_step: bigint): bigint {
   // This gives us the fee in units of 10^9 (matching precision)
   let base = BigInt(params.base_factor)
   let step = bin_step
-  return mul_u64(mul_u64(base, step), 10n)
+  return mul_u64(base, step)
 }
 
 function update_volatility_accumulator(params: LBPair['parameters'], active_id: bigint) {
@@ -366,7 +412,7 @@ function update_volatility_accumulator(params: LBPair['parameters'], active_id: 
 
   let vol_ref = BigInt(params.volatility_reference)
   let delta = BigInt(delta_id)
-  let basis_max = BASIS_POINT_MAX
+  let basis_max = 10n;
 
   let vol_acc = add_u64(vol_ref, mul_u64(delta, basis_max))
   let max_vol_acc = BigInt(params.max_volatility_accumulator)
@@ -417,30 +463,53 @@ function max_input_for_exact_output(output_amount: bigint, price: bigint, swap_f
 
   if (swap_for_y) {
     // For Y output, need X input: x = y / price
-    return x_from_y_price(output_amount, price)
+    return shift_div_round_up(output_amount, BigInt(SCALE_OFFSET_64X64), price)
   } else {
     // For X output, need Y input: y = x * price
-    return y_from_x_price(output_amount, price)
+    return mul_shift_round_up(output_amount, price, BigInt(SCALE_OFFSET_64X64))
   }
 }
 
-function x_from_y_price(y: bigint, price: bigint): bigint {
-  if (y == 0n || price == 0n) {
+function shift_div_round_up(numerator: bigint, offset: bigint, denominator: bigint): bigint {
+  if (denominator <= 0) {
+    throw new Error('E_DIVISION_BY_ZERO')
+  }
+
+  if (offset > 64) {
+    throw new Error('E_OVERFLOW')
+  }
+
+  if (numerator == 0n) {
     return 0n
   }
 
-  // y / price = (y << 64) / price
-  let y_shifted = y << BigInt(SCALE_OFFSET_64X64)
-  return y_shifted / price
+  const numerator2 = numerator << offset
+
+  return u128_to_u64((numerator2 - 1n) / denominator + 1n)
+}
+
+function mul_shift_round_up(a: bigint, b: bigint, offset: bigint): bigint {
+  assert!(offset <= SCALE_OFFSET_64X64, 'E_OVERFLOW')
+
+  if (a == 0n || b == 0n) return 0n
+
+  let numerator = a * b
+  let denominator = 1n << offset
+  return u256_to_u64((numerator - 1n) / denominator + 1n)
+}
+
+function u256_to_u64(value: bigint): bigint {
+  assert!(value <= MAX_U64, 'E_OVERFLOW')
+  return value
 }
 
 /// Calculate y from x and price: y = x * price
 /// Used in get_amounts for swap calculations
-function y_from_x_price(x: bigint, price: bigint): bigint {
-  if (x == 0n || price == 0n) {
-    return 0n
-  }
+// function y_from_x_price(x: bigint, price: bigint): bigint {
+//   if (x == 0n || price == 0n) {
+//     return 0n
+//   }
 
-  // x * price in fixed point, then convert to integer
-  return (x * price) >> BigInt(SCALE_OFFSET_64X64)
-}
+//   // x * price in fixed point, then convert to integer
+//   return (x * price) >> BigInt(SCALE_OFFSET_64X64)
+// }

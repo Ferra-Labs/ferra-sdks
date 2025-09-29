@@ -5,7 +5,6 @@ const SDKConfig = {
     pools_id: '0xf699e7f2276f5c9a75944b37a0c5b5d9ddfd2471bf6242483b03ab2887d198d0',
     global_config_id: '0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f',
     global_rewarder_vault_id: '0xce7bceef26d3ad1f6d9b6f13a953f053e6ed3ca77907516481ce99ae8e588f2b',
-    admin_cap_id: '0x89c1a321291d15ddae5a086c9abc533dff697fde3d89e0ca836c41af73e36a75',
   }
 }
 
@@ -24,7 +23,7 @@ export const clmmMainnet: SdkOptions = {
     package_id: '0x996c4d9480708fb8b92aa7acf819fb0497b5ec8e65ba06601cae2fb6db3312c3',
     published_at: '0x15c0555d7601d98ca2659a8387d377a81b1e285ee0808484e101f96d05806187',
   },
-  swapCountUrl: 'https://api-dev.ferra.xyz/clmm/swap/pools'
+  swapCountUrl: 'https://api-dev.ferra.ag/clmm/swap/pools'
 }
 
 export const SDK = new FerraClmmSDK(clmmMainnet)

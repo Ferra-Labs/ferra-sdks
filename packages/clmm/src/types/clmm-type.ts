@@ -2,6 +2,7 @@ import BN from 'bn.js'
 import { NFT, SuiAddressType, SuiObjectIdType } from './sui'
 import { TickData } from './clmm-pool'
 import { ClmmpoolsError, ConfigErrorCode } from '../errors/errors'
+import type { Transaction, TransactionResult } from '@mysten/sui/transactions'
 /**
  * Enumerates the possible status values of a position within a liquidity mining module.
  */
@@ -81,7 +82,7 @@ export type Position = {
    * The status of the position within the liquidity mining module.
    */
   position_status: ClmmPositionStatus
-  lock_until: string;
+  lock_until: string
 
   /**
    * The address type of the first coin in the position.
@@ -313,11 +314,6 @@ export type ClmmConfig = {
   global_config_id: SuiObjectIdType
 
   /**
-   * Identifier of the administrative capacity for the module.
-   */
-  admin_cap_id: SuiObjectIdType
-
-  /**
    * Identifier of the global vault for the module.
    */
   global_rewarder_vault_id: SuiObjectIdType
@@ -460,7 +456,7 @@ export type CreatePoolAddLiquidityParams = CreatePoolParams & {
    */
   tick_upper: number
 
-  lock_until?: number,
+  lock_until?: number
 
   metadata_a?: SuiObjectIdType
   metadata_b?: SuiObjectIdType
@@ -921,6 +917,30 @@ export type CollectRewarderParams = {
    * An array of rewarder coin types.
    */
   rewarder_coin_types: SuiAddressType[]
+} & CoinPairType
+
+export type RemoveLiquidityAndClaimRewardsParams = {
+  /**
+     * The identifier of the pool.
+     */
+  pool_id: SuiObjectIdType
+  /**
+  * The minimum amount of the first coin to be received.
+  */
+  min_amount_a: bigint
+
+  /**
+   * The minimum amount of the second coin to be received.
+   */
+  min_amount_b: bigint
+  /**
+   * The actual change in liquidity that has been added.
+   */
+  delta_liquidity: string
+  /**
+   * The identifier of the position.
+   */
+  pos_id: SuiObjectIdType
 } & CoinPairType
 
 /**

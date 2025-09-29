@@ -19,9 +19,9 @@ export async function main() {
     keypair = Ed25519Keypair.deriveKeypair(mnemonic)
   }
 
-  const wallet = keypair.getPublicKey().toSuiAddress()
-  const sdk = initFerraSDK({ network: 'testnet', wallet: wallet })
-  const pair = await sdk.Pair.getPair('0x90ae881c804906018a669c1fc87bea420efee97d6a05e37901ad7087333f8909')
+  const wallet = "0xac5bceec1b789ff840d7d4e6ce4ce61c90d190a7f8c4f4ddf0bff6ee2413c33c"
+  const sdk = initFerraSDK({ network: 'beta', wallet })
+  const pair = await sdk.Pair.getPair('0xe82b6f6d569907f87c2c3e8748bc393d9f19ec7fc70c53f54354d7da633cc18f')
 
   if (!pair) {
     throw new Error('Pair not found')
@@ -33,45 +33,44 @@ export async function main() {
   const coinYAmount = 0.01
   const slippage = 0.5
 
-  const TEST = false
-  const COUNT = 10
-  const distribution = DistributionUtils.createParams('BID_ASK', {
+  const TEST = true
+  const COUNT = 10000
+  const distribution = DistributionUtils.createParams('SPOT', {
     activeId: currentPairId,
     binRange: [currentPairId - COUNT, currentPairId + COUNT],
-    parsedAmounts: [Decimal(toDecimalsAmount(coinXAmount, 6)), Decimal(toDecimalsAmount(coinYAmount, 9))],
-  })
-  console.log('-----------', distribution.deltaIds.length);
-  
-  console.log('pair', pair.id)
-  console.log('active_id', pair.parameters.active_id)
-  console.log('Coin X', {
-    coinType: pair.tokenXType,
-    amount: toDecimalsAmount(coinXAmount, 6),
-  })  
-  
-  console.log('Coin Y', {
-    coinType: pair.tokenYType,
-    amount: Decimal(toDecimalsAmount(coinYAmount, 9)),
+    parsedAmounts: [Decimal(toDecimalsAmount(coinXAmount, 6)), Decimal(toDecimalsAmount(0, 9))],
   })
 
-  verifyDistribution(distribution)
+  console.log('distribution', distribution);
+
   const tx = new Transaction()
   const [_, position] = TransactionUtil.createLbPosition(pair, sdk.sdkOptions, tx)
-  
-  await sdk.Pair.addLiquidity(pair, {
-    amountX: BigInt(toDecimalsAmount(coinXAmount, 6)),
-    amountY: BigInt(toDecimalsAmount(coinYAmount, 9)),
-    ...distribution,
-    position: position
-  }, tx)
+
+  const BATCH_SIZE = 400;
+  for (let i = 0; i < BATCH_SIZE * 1000; i += BATCH_SIZE) {
+    const ids = distribution.ids.slice(i, (i + BATCH_SIZE));
+    if (ids.length === 0) {
+      break;
+    }
+    
+    await sdk.Pair.addLiquidity(pair, {
+      amountX: BigInt(toDecimalsAmount(coinXAmount / 4, 6)),
+      amountY: BigInt(toDecimalsAmount(coinYAmount / 4, 9)),
+      ids: ids,
+      distributionX: distribution.distributionX.slice(i, (i + BATCH_SIZE)),
+      distributionY: distribution.distributionY.slice(i, (i + BATCH_SIZE)),
+      position: position
+    }, tx)
+  }
 
   tx.transferObjects([position], sdk.senderAddress)
 
   let res
 
   if (TEST) {
-    res = await sdk.fullClient.dryRunTransactionBlock({
-      transactionBlock: await tx.build({ client: sdk.fullClient }),
+    res = await sdk.fullClient.devInspectTransactionBlock({
+      transactionBlock: tx,
+      sender: wallet
     })
     const gas =
       BigInt(res.effects!.gasUsed.storageCost) - BigInt(res.effects!.gasUsed.storageRebate) + BigInt(res.effects!.gasUsed.computationCost)

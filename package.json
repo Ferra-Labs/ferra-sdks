@@ -1,6 +1,6 @@
 {
-  "name": "@phoenix0x02/ferra-sdks",
-  "version": "1.2.7",
+  "name": "@ferra-labs/sdks",
+  "version": "0.0.8-beta.8",
   "description": "DEX SDKs for CLMM and DLMM protocols",
   "private": true,
   "scripts": {
@@ -60,7 +60,7 @@
   "author": "Ferra Teams",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/phoenix0x02/ferra-sdks/issues"
+    "url": "https://github.com/ferra-xyz/ferra-sdks/issues"
   },
-  "homepage": "https://github.com/phoenix0x02/ferra-sdks/tree/main#readme"
+  "homepage": "https://github.com/ferra-xyz/ferra-sdks/tree/main#readme"
 }

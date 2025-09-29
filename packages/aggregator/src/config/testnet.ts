@@ -1,5 +1,5 @@
 import FerraAggregatorSDK, { SdkOptions } from '../main'
-import { checkInvalidSuiAddress } from '../utils'
+import { checkValidSuiAddress } from '../utils'
 
 const SDKConfig = {
   aggConfig: {
@@ -21,7 +21,7 @@ export const aggTestnet: SdkOptions = {
     published_at: '0xaa71601f6306104290d75002dc3da41e0daf972cc18f66557a8a5bba7e89a261',
     config: SDKConfig.aggConfig,
   },
-  quoterUrl: 'https://api-dev.ferra.xyz/agg/quote',
+  quoterUrl: 'https://api-dev.ferra.ag/agg/quote',
 }
 
 /**
@@ -38,7 +38,7 @@ export function initTestnetSDK(fullNodeUrl?: string, wallet?: string): FerraAggr
     aggTestnet.fullRpcUrl = fullNodeUrl
   }
   const sdk = new FerraAggregatorSDK(aggTestnet)
-  if (wallet && checkInvalidSuiAddress(wallet)) {
+  if (wallet && checkValidSuiAddress(wallet)) {
     sdk.senderAddress = wallet
   }
   return sdk

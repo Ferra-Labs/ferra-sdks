@@ -35,28 +35,31 @@ export async function main() {
   }
 
   const wallet = keypair.getPublicKey().toSuiAddress()
-  const sdk = initFerraSDK({ network: 'beta', wallet })
+  const sdk = initFerraSDK({ network: 'mainnet', wallet })
 
   const TEST = true
 
-  const pair = await sdk.Pair.getPair('0xe252e907bc4b642b58699d9bb55ffcbb44962240e35aa871cf99ebb4ee130c32')
+  const pair = await sdk.Pair.getPair('0x20ce617778f92183b7b00a88a79da798af2da19f1829ce4f62d87226c9dcaa74')
   if (!pair) {
     throw new Error('Pair not found')
   }
 
-  const binsData = await sdk.Pair.getPairBinsData(pair.id)
+  const binsData = formatBins([]);
 
-  console.log('swapOut', pair.parameters.active_id)
-  const AMOUNT = 1000_002n
-  const XTOY = true
-
+  const AMOUNT = 10_000_000_000n;
+  const XTOY = false
+  
   const swapOut = sdk.Swap.calculateRates(pair, {
     amount: AMOUNT,
     swapBins: binsData,
     xtoy: XTOY,
+    decimalsA: 6,
+    decimalsB: 9
   })
   console.log('swapOut', swapOut)
-  
+  if (binsData) {
+    return
+  }
   const tx = await sdk.Swap.prepareSwap(pair, {
     amount: AMOUNT,
     xtoy: XTOY,
@@ -84,8 +87,8 @@ export async function main() {
     : swapEvent.amounts_out_x.reduce((p, v) => ((p += BigInt(v)), p), 0n)
 
   const fee = swapEvent.swap_for_y
-  ? swapEvent.total_fees_x.reduce((p, v) => ((p += BigInt(v)), p), 0n)
-  : swapEvent.total_fees_y.reduce((p, v) => ((p += BigInt(v)), p), 0n)
+    ? swapEvent.total_fees_x.reduce((p, v) => ((p += BigInt(v)), p), 0n)
+    : swapEvent.total_fees_y.reduce((p, v) => ((p += BigInt(v)), p), 0n)
   console.log('swapEvent', amountOut, swapOut.estimatedAmountOut)
   console.log('fee', fee)
   console.log('swapEvent', swapEvent)

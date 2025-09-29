@@ -32,7 +32,7 @@ export async function main() {
   const wallet = keypair.getPublicKey().toSuiAddress()
   const sdk = initFerraSDK({ network: 'testnet', wallet })
 
-  const TEST = false
+  const TEST = true
 
   const binStep = 1
   let inititalPrice = 3.9
