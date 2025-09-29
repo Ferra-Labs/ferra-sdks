@@ -2,9 +2,9 @@ name: Ferra SDKs
 
 on:
   push:
-    branches: [ "mainnet", "dev", "beta" ]
+    branches: [ "main", "dev", "beta" ]
   pull_request:
-    branches: [ "mainnet", "dev", "beta" ]
+    branches: [ "main", "dev", "beta" ]
 
 env:
   SCOPE: ferra-labs
