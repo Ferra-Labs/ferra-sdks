@@ -1,5 +1,5 @@
 import FerraAggregatorSDK, { SdkOptions } from '../main'
-import { checkInvalidSuiAddress } from '../utils'
+import { checkValidSuiAddress } from '../utils'
 
 const SDKConfig = {
   aggConfig: {
@@ -39,7 +39,7 @@ export function initMainnetSDK(fullNodeUrl?: string, wallet?: string): FerraAggr
     aggMainnet.fullRpcUrl = fullNodeUrl
   }
   const sdk = new FerraAggregatorSDK(aggMainnet)
-  if (wallet && checkInvalidSuiAddress(wallet)) {
+  if (wallet && checkValidSuiAddress(wallet)) {
     sdk.senderAddress = wallet
   }
   return sdk
