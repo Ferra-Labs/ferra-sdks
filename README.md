@@ -1,4 +1,12 @@
-# ferra-sdks
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a >
+    <img src="https://assets.ferra.ag/logo/logo/icon/Icon1.png" alt="Logo" width="100" height="100">
+  </a>
+
+  <h3 align="center">Ferra SDKs</h3>
+</div>
 
 A monorepo containing SDKs for CLMM (Concentrated Liquidity Market Maker), DLMM (Discrete Liquidity Market Maker) protocols, and DEX Aggregator.
 
