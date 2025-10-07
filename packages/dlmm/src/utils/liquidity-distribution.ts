@@ -292,98 +292,96 @@ export namespace DistributionUtils {
     const [amountX, amountY] = parsedAmounts
     const hasX = amountX.gt(0)
     const hasY = amountY.gt(0)
-
+  
     const distributionX: bigint[] = []
     const distributionY: bigint[] = []
-
+  
     const numBins = deltaIds.length
-
-    // Split bins into bid (left of active) and ask (right of active) sides
-    const bidBins: number[] = [] // For Y tokens (left side)
-    const askBins: number[] = [] // For X tokens (right side)
-    let activeIndex = -1
-
-    for (let i = 0; i < numBins; i++) {
-      const currentId = activeId + deltaIds[i]
-      if (currentId < activeId) {
-        bidBins.push(i)
-      } else if (currentId > activeId) {
-        askBins.push(i)
-      } else {
-        activeIndex = i
-      }
-    }
-
+  
     // Initialize all distributions to 0
     for (let i = 0; i < numBins; i++) {
       distributionX.push(0n)
       distributionY.push(0n)
     }
-
-    // Reserve for activeId (1% each if present)
-    const activeReserveX = hasX && activeIndex !== -1 ? 0.01 : 0
-    const activeReserveY = hasY && activeIndex !== -1 ? 0.01 : 0
-
-    // Create bid distribution (Y tokens on left side)
-    // Liquidity decreases linearly as we approach activeId
-    if (bidBins.length > 0 && hasY) {
-      let totalBidWeight = 0
-      const bidWeights: number[] = []
-
-      for (let i = 0; i < bidBins.length; i++) {
-        // Weight increases with distance from activeId (leftmost bins get highest weight)
-        const distanceFromActive = bidBins.length - i
-        const weight = distanceFromActive
-        bidWeights.push(weight)
-        totalBidWeight += weight
-      }
-
-      // Apply normalized weights to Y distribution (use 99% if activeId exists)
-      const bidPortion = 1 - activeReserveY
-      for (let i = 0; i < bidBins.length; i++) {
-        const idx = bidBins[i]
-        const normalizedWeight = bidWeights[i] / totalBidWeight
-        distributionY[idx] = BigInt(Math.floor(Number(PRECISION) * normalizedWeight * bidPortion))
+  
+    // Calculate weights for all bins with smooth transition
+    let totalWeightX = 0
+    let totalWeightY = 0
+    const weightsX: number[] = new Array(numBins).fill(0)
+    const weightsY: number[] = new Array(numBins).fill(0)
+  
+    // Find active bin index
+    let activeIndex = -1
+    for (let i = 0; i < numBins; i++) {
+      if (activeId + deltaIds[i] === activeId) {
+        activeIndex = i
+        break
       }
     }
-
-    // Create ask distribution (X tokens on right side)
-    // Liquidity decreases linearly as we approach activeId
-    if (askBins.length > 0 && hasX) {
-      let totalAskWeight = 0
-      const askWeights: number[] = []
-
-      for (let i = 0; i < askBins.length; i++) {
-        // Weight increases with distance from activeId (rightmost bins get highest weight)
-        const distanceFromActive = i + 1
-        const weight = distanceFromActive
-        askWeights.push(weight)
-        totalAskWeight += weight
-      }
-
-      // Apply normalized weights to X distribution (use 99% if activeId exists)
-      const askPortion = 1 - activeReserveX
-      for (let i = 0; i < askBins.length; i++) {
-        const idx = askBins[i]
-        const normalizedWeight = askWeights[i] / totalAskWeight
-        distributionX[idx] = BigInt(Math.floor(Number(PRECISION) * normalizedWeight * askPortion))
+  
+    // Calculate the ratio of X to Y for balanced active bin allocation
+    let xRatio = 0.5
+    let yRatio = 0.5
+    
+    if (hasX && hasY && amountX.gt(0) && amountY.gt(0)) {
+      const total = amountX.add(amountY)
+      xRatio = amountX.div(total).toNumber()
+      yRatio = amountY.div(total).toNumber()
+    } else if (hasX && !hasY) {
+      xRatio = 1
+      yRatio = 0
+    } else if (!hasX && hasY) {
+      xRatio = 0
+      yRatio = 1
+    }
+  
+    for (let i = 0; i < numBins; i++) {
+      const currentId = activeId + deltaIds[i]
+      
+      if (currentId < activeId) {
+        // Left side (Y tokens): weight increases with distance from activeId
+        const distance = Math.abs(deltaIds[i])
+        weightsY[i] = distance
+        totalWeightY += distance
+      } else if (currentId > activeId) {
+        // Right side (X tokens): weight increases with distance from activeId
+        const distance = Math.abs(deltaIds[i])
+        weightsX[i] = distance
+        totalWeightX += distance
+      } else if (currentId === activeId) {
+        // Active bin: gets minimal weight, but proportional to X/Y amounts for balance
+        // Base weight is small to maintain V-shape, but distributed according to ratio
+        const baseWeight = 0.5
+        
+        if (hasX) {
+          // X weight at active bin is influenced by how much X there is relative to Y
+          weightsX[i] = baseWeight * xRatio
+          totalWeightX += weightsX[i]
+        }
+        
+        if (hasY) {
+          // Y weight at active bin is influenced by how much Y there is relative to X
+          weightsY[i] = baseWeight * yRatio
+          totalWeightY += weightsY[i]
+        }
       }
     }
-
-    // Handle active bin if present (gets minimal liquidity - 1% each)
-    if (activeIndex !== -1) {
-      if (hasX) {
-        distributionX[activeIndex] = BigInt(Math.floor(Number(PRECISION) * activeReserveX))
+  
+    // Apply normalized weights to distributions
+    for (let i = 0; i < numBins; i++) {
+      if (hasX && totalWeightX > 0 && weightsX[i] > 0) {
+        distributionX[i] = BigInt(Math.floor(Number(PRECISION) * (weightsX[i] / totalWeightX)))
       }
-      if (hasY) {
-        distributionY[activeIndex] = BigInt(Math.floor(Number(PRECISION) * activeReserveY))
+      
+      if (hasY && totalWeightY > 0 && weightsY[i] > 0) {
+        distributionY[i] = BigInt(Math.floor(Number(PRECISION) * (weightsY[i] / totalWeightY)))
       }
     }
-
+  
     // Normalize to ensure sum equals PRECISION for non-zero amounts
     if (hasX) normalizeDistribution(distributionX)
     if (hasY) normalizeDistribution(distributionY)
-
+  
     return { distributionX, distributionY }
   }
 
