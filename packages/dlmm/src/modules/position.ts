@@ -699,11 +699,11 @@ export class PositionModule implements IModule {
       id: positionOnChain.id.id,
       tokenXType: positionOnChain.coin_type_a.fields.name,
       tokenYType: positionOnChain.coin_type_b.fields.name,
-      description: positionOnChain.description,
-      index: positionOnChain.index,
-      name: positionOnChain.name,
       pair_id: positionOnChain.pair_id,
-      url: positionOnChain.url,
+      saved_fees_x: BigInt(positionOnChain.saved_fees_x),
+      saved_fees_y: BigInt(positionOnChain.saved_fees_y),
+      saved_rewards: positionOnChain.saved_rewards.map(BigInt),
+      total_bins: Number(positionOnChain.total_bins),
       version,
     }
   }

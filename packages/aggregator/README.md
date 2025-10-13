@@ -1,4 +1,12 @@
-# ferra-sdks
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a >
+    <img src="https://assets.ferra.ag/logo/logo/icon/Icon1.png" alt="Logo" width="100" height="100">
+  </a>
+
+  <h3 align="center">Ferra SDKs</h3>
+</div>
 
 A monorepo containing SDKs for CLMM (Concentrated Liquidity Market Maker), DLMM (Discrete Liquidity Market Maker) protocols, and DEX Aggregator.
 
@@ -217,21 +225,4 @@ npm install @ferra-labs/clmm @ferra-labs/aggregator
 
 # Install all packages
 npm install @ferra-labs/clmm @ferra-labs/dlmm @ferra-labs/aggregator
-```
-
-### Pre-release Testing
-
-```bash
-# Publish beta version
-pnpm changeset pre enter beta
-pnpm version-packages
-pnpm release
-
-# Install beta versions
-npm install @ferra-labs/clmm@beta
-npm install @ferra-labs/dlmm@beta
-npm install @ferra-labs/aggregator@beta
-
-# Exit pre-release mode
-pnpm changeset pre exit
 ```

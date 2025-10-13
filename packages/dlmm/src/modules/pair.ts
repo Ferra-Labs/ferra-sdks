@@ -256,15 +256,17 @@ export class PairModule implements IModule {
     const bins = await binsFetcher.fetchAll().then((res) => res.sort((a, b) => Number(a.name) - Number(b.name)))
 
     // Convert to BinData format
-    return bins.map(
+    return bins.flatMap(bins => bins.value.fields.bin_data).map(
       (bin) =>
         ({
-          id: Number(bin.name),
-          fee_x: BigInt(bin.value.fields.value.fields.fee_x ?? '0'),
-          fee_y: BigInt(bin.value.fields.value.fields.fee_y ?? '0'),
-          reserve_x: BigInt(bin.value.fields.value.fields.reserve_x ?? '0'),
-          reserve_y: BigInt(bin.value.fields.value.fields.reserve_y ?? '0'),
-          total_supply: BigInt(bin.value.fields.value.fields.total_supply),
+          id: Number(bin.fields.bin_id),
+          reserve_x: BigInt(bin.fields.reserve_x ?? '0'),
+          reserve_y: BigInt(bin.fields.reserve_y ?? '0'),
+          total_supply: BigInt(bin.fields.total_supply),
+          fee_growth_x: BigInt(bin.fields.fee_growth_x),
+          fee_growth_y: BigInt(bin.fields.fee_growth_y),
+          price: BigInt(bin.fields.price),
+          reward_growths: bin.fields.reward_growths.map(BigInt),
         }) as BinReserves & { id: number }
     )
   }
@@ -333,7 +335,6 @@ export class PairModule implements IModule {
         filter_period: String(lbPairOnChain.parameters.fields.filter_period),
         id_reference: String(lbPairOnChain.parameters.fields.id_reference),
         max_volatility_accumulator: String(lbPairOnChain.parameters.fields.max_volatility_accumulator),
-        oracle_id: String(lbPairOnChain.parameters.fields.oracle_id),
         protocol_share: String(lbPairOnChain.parameters.fields.protocol_share),
         reduction_factor: String(lbPairOnChain.parameters.fields.reduction_factor),
         time_of_last_update: String(lbPairOnChain.parameters.fields.time_of_last_update),
@@ -343,7 +344,7 @@ export class PairModule implements IModule {
       },
       rewarders: lbPairOnChain.reward_manager.fields.rewarders.map((r) => ({
         reward_coin: r.fields.reward_coin.fields.name,
-        emissions_per_second: r.fields.emissions_per_second,
+        emission_per_ms: r.fields.emission_per_ms,
       })),
     }
   }

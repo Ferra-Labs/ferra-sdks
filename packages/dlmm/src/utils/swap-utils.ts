@@ -169,7 +169,6 @@ function get_swap_amounts(
       return [max_amount_in_with_fee, bin_reserve_out, max_fee]
     } else {
       let fee = get_fee_amount_inclusive(amount_in_available, total_fee)
-      console.log('fee', fee);
       
       let amount_in_without_fee = sub_u64(amount_in_available, fee)
 

@@ -1,24 +1,24 @@
 export type LbPositionOnChain = {
+  id: {
+    id: string
+  }
+  pair_id: string
+  my_id: string
+  saved_fees_x: string
+  saved_fees_y: string
+  saved_rewards: string[]
   coin_type_a: {
     fields: {
       name: string
     }
-    type: string
   }
   coin_type_b: {
     fields: {
       name: string
     }
-    type: string
   }
-  description: string
-  id: {
-    id: string
-  }
-  index: string
-  name: string
-  pair_id: string
-  url: string
+  lock_until: string
+  total_bins: string
 }
 
 export interface BinDataOnchain {
@@ -40,6 +40,7 @@ export interface PositionBinOnchain {
           amount: string
           fee_growth_inside_last_x: string
           fee_growth_inside_last_y: string
+          reward_growth_inside_last: string[]
         }
       }[]
     }
@@ -53,35 +54,20 @@ export type BinReserveOnchain = {
   name: string
   value: {
     fields: {
-      score: string
-      nexts: {
+      active_bins_bitmap: number
+      bin_data: {
         fields: {
-          is_none: boolean
-          v: string
+          bin_id: number
+          reserve_x: string
+          reserve_y: string
+          price: string
+          fee_growth_x: string
+          fee_growth_y: string
+          reward_growths: string[]
+          total_supply: string
         }
+        type: string
       }[]
-      prev: {
-        fields: {
-          is_none: boolean
-          v: string
-        }
-      }
-      value: {
-        fields: {
-          reserve_x: string | number | bigint
-          reserve_y: string | number | bigint
-          fee_x: string | number | bigint
-          fee_y: string | number | bigint
-          price: string | number | bigint
-          fee_growth_x: string | number | bigint
-          fee_growth_y: string | number | bigint
-          rewards_growth: Iterable<string | number | bigint> & {
-            length: number
-          }
-          liquidity: string | number | bigint
-          total_supply: string | number | bigint
-        }
-      }
     }
   }
 }
@@ -94,6 +80,7 @@ export interface PositionInfoOnChain {
   value: {
     fields: {
       position_id: string
+      pair_id: string
       bins: {
         fields: {
           id: {
@@ -102,12 +89,7 @@ export interface PositionInfoOnChain {
           size: string
         }
       }
-      total_fees_gen: string
-      reward_per_fee_snapshot: string[]
-      reward_dump: boolean
-      reward_dump_version: string
-      reward_claimed_bitmap: number
-      reward_version_checksum: string
+      toggle: number
     }
   }
 }

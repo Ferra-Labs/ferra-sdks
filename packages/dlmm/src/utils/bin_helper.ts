@@ -2,9 +2,11 @@
 interface BinReserves {
   reserve_x: bigint;
   reserve_y: bigint;
-  fee_x: bigint;
-  fee_y: bigint;
+  fee_growth_x: bigint;
+  fee_growth_y: bigint;
   total_supply: bigint
+  price: bigint
+  reward_growths: bigint[]
 }
 
 interface Amount {
@@ -145,16 +147,20 @@ const safeMath = {
 function createBinReserves(
   reserve_x: bigint,
   reserve_y: bigint,
-  fee_x: bigint = 0n,
-  fee_y: bigint = 0n,
-  total_supply: bigint
+  fee_growth_x: bigint = 0n,
+  fee_growth_y: bigint = 0n,
+  total_supply: bigint,
+  price: bigint,
+  reward_growths: bigint[],
 ): BinReserves {
   return {
     reserve_x,
     reserve_y,
-    fee_x,
-    fee_y,
-    total_supply
+    fee_growth_x,
+    fee_growth_y,
+    total_supply,
+    price,
+    reward_growths
   };
 }
 
@@ -162,8 +168,8 @@ function createBinReserves(
  * Get total amounts (reserves + fees)
  */
 function getTotalAmounts(binReserves: BinReserves): [bigint, bigint] {
-  const total_x = binReserves.reserve_x + binReserves.fee_x;
-  const total_y = binReserves.reserve_y + binReserves.fee_y;
+  const total_x = binReserves.reserve_x;
+  const total_y = binReserves.reserve_y;
   return [total_x, total_y];
 }
 

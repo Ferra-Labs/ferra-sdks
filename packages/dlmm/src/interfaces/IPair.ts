@@ -35,7 +35,7 @@ export interface LBPair {
   version: string
   rewarders: {
     reward_coin: string
-    emissions_per_second: string
+    emission_per_ms: string
   }[]
   // Note: Internal fields like parameters, reserves, etc. are not exposed in the interface
 }
@@ -63,13 +63,12 @@ export interface LbPairOnChain {
       decay_period: number
       reduction_factor: number
       variable_fee_control: number
-      protocol_share: number
+      protocol_share: string
       max_volatility_accumulator: number
       volatility_accumulator: number
       volatility_reference: number
       id_reference: number
       time_of_last_update: string
-      oracle_id: number
       active_id: number
     }
   }
@@ -82,44 +81,30 @@ export interface LbPairOnChain {
           id: {
             id: string
           }
-          head: {
+          size: string
+        }
+      }
+      tree: {
+        fields: {
+          level0: string
+          level1: {
             fields: {
-              is_none: boolean
-              v: string
-            }
-          }[]
-          tail: {
-            fields: {
-              is_none: boolean
-              v: string
+              id: {
+                id: string
+              }
+              size: string
             }
           }
-          level: string
-          max_level: string
-          list_p: string
-          size: string
-          random: {
+          level2: {
             fields: {
-              seed: string
+              id: {
+                id: string
+              }
+              size: string
             }
           }
         }
       }
-    }
-  }
-  oracle: {
-    fields: {
-      samples: {
-        fields: {
-          cumulative_id: string
-          cumulative_volatility: string
-          cumulative_bin_crossed: string
-          sample_lifetime: number
-          created_at: string
-        }
-      }[]
-      oracle_length: number
-      initialized: boolean
     }
   }
   position_manager: {
@@ -140,21 +125,15 @@ export interface LbPairOnChain {
     fields: {
       rewarders: {
         fields: {
+          emission_per_ms: string
           reward_coin: {
             fields: {
               name: string
             }
           }
-          emissions_per_second: string
         }
       }[]
-    }
-  }
-  reward_state: {
-    fields: {
-      reward_per_fee_cumulative: string[]
-      total_fees_ever: string
-      last_update_time: string
+      last_update_timestamp: string
     }
   }
 }
@@ -163,18 +142,15 @@ export interface Pairs {
   id: {
     id: string
   }
-  index: string
   list: {
     fields: {
-      head: string
       id: {
         id: string
       }
       size: string
-      tail: string
     }
-    type: string
   }
+  index: string
 }
 
 export interface PairInfo {
@@ -184,26 +160,23 @@ export interface PairInfo {
   name: string
   value: {
     fields: {
+      pair_id: string
+      pair_key: string
       bin_step: number
       coin_type_a: {
         fields: {
           name: string
         }
-        type: string
       }
       coin_type_b: {
         fields: {
           name: string
         }
-        type: string
       }
-      pair_id: string
-      pair_key: string
     }
     type: string
   }
 }
-
 
 export interface PairBin {
   reserve_x: string
@@ -214,11 +187,11 @@ export interface LBPosition {
   id: string
   tokenXType: string
   tokenYType: string
-  description: string
-  index: string
-  name: string
   pair_id: string
-  url: string
+  saved_fees_x: bigint
+  saved_fees_y: bigint
+  saved_rewards: bigint[]
+  total_bins: number
   version: string
 }
 
@@ -242,7 +215,6 @@ export type PairParameters = {
   volatility_reference: U32
   id_reference: U32
   time_of_last_update: U64
-  oracle_id: U16
   active_id: number
 }
 
