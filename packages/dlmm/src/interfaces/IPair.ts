@@ -271,6 +271,27 @@ export interface CollectPositionRewardsParams {
   binIds: number[]
 }
 
+export interface CollectPositionRewardsEvent {
+  id: {
+    txDigest: string
+    eventSeq: string
+  }
+  packageId: string
+  transactionModule: string
+  sender: string
+  type: string
+  parsedJson: {
+    amount: string
+    pair: string
+    position: string
+    reward_type: {
+      name: string
+    }
+  }
+  bcsEncoding: string
+  bcs: string
+}
+
 export interface CollectPositionFeesParams {
   pairId: string
   positionId: string

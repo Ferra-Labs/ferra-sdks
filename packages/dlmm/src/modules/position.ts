@@ -2,8 +2,8 @@ import { isValidSuiAddress, normalizeStructTag, parseStructTag } from '@mysten/s
 import { IModule } from '../interfaces/IModule'
 import { FerraDlmmSDK } from '../sdk'
 import { CachedContent } from '../utils/cached-content'
-import { Amounts, BinData, LBPair, LbPairBinData, LBPosition } from '../interfaces/IPair'
-import type { SuiObjectResponse, SuiParsedData } from '@mysten/sui/client'
+import { Amounts, BinData, CollectPositionRewardsEvent, LBPair, LbPairBinData, LBPosition } from '../interfaces/IPair'
+import type { SuiClient, SuiObjectResponse, SuiParsedData } from '@mysten/sui/client'
 import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
 import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
 import { LbPositionOnChain, PositionBinOnchain, PositionInfoOnChain, PositionReward } from '../interfaces/IPosition'
@@ -108,7 +108,8 @@ export class PositionModule implements IModule {
           MatchAny: [
             {
               StructType: `${package_id}::lb_position::LBPosition`,
-            },{
+            },
+            {
               StructType: `${published_at}::lb_position::LBPosition`,
             },
           ],
@@ -258,6 +259,119 @@ export class PositionModule implements IModule {
   }
 
   /**
+   * Retrieves the balance of multiple coin types from a RewarderGlobalVault on the SUI network.
+   *
+   * This function queries the RewarderGlobalVault's dynamic fields (stored in a Bag)
+   * to find the balance for each provided coin type. If a coin type is not found in the vault,
+   * it returns 0n for that coin type.
+   *
+   * @param {SuiClient} client - The SUI client instance used to make RPC calls
+   * @param {string} rewarderVaultId - The object ID of the RewarderGlobalVault on SUI blockchain
+   * @param {string[]} coinTypes - Array of coin type identifiers to query balances for
+   *
+   * @returns {Promise<bigint[]>} Array of balances corresponding to each coin type.
+   *                               Returns 0n if a coin type doesn't exist in the vault.
+   *                               The order matches the input coinTypes array.
+   *
+   * @example
+   * ```typescript
+   * const client = new SuiClient({ url: "https://fullnode.mainnet.sui.io" });
+   *
+   * const balances = await getRewarderBalances(
+   *   client,
+   *   "0xd68c56a1610953b0a81c48ad26e463c6c51e50ddcc13e5e4121fe70ee75c1bf7",
+   *   [
+   *     "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
+   *     "0x2::sui::SUI",
+   *   ]
+   * );
+   *
+   * console.log(balances); // [47463762n, 0n]
+   * ```
+   *
+   * @throws {Error} Throws if the vault object is invalid or not a moveObject
+   */
+  public async getRewarderBalances<T extends Array<string>>(coinTypes: T): Promise<SizedArray<bigint, T['length']>> {
+    const config = this.sdk.sdkOptions
+    const client = this.sdk.fullClient
+    const { reward_vault } = config.dlmm_pool.config ?? {}
+    if (!reward_vault) {
+      throw new Error('Pairs id not found from config')
+    }
+
+    const vault = await client.getObject({
+      id: reward_vault,
+      options: {
+        showContent: true,
+        showType: true,
+      },
+    })
+
+    if (vault.data?.content?.dataType !== 'moveObject') {
+      throw new Error('Invalid vault object')
+    }
+
+    const vaultContent = vault.data.content.fields as any
+
+    const balancesBagId = vaultContent.balances.fields.id.id
+
+    let cursor: string | null = null
+    const dynamicFieldsMap = new Map<string, string>()
+
+    do {
+      const response = await client.getDynamicFields({
+        parentId: balancesBagId,
+        cursor,
+        limit: 100,
+      })
+
+      for (const field of response.data) {
+        if (field.name.type === '0x1::type_name::TypeName') {
+          const fieldName = field.name.value as any
+          const coinType = fieldName.name?.fields?.name || fieldName?.name
+
+          dynamicFieldsMap.set(normalizeStructTag(coinType), field.objectId)
+        }
+      }
+
+      cursor = response.hasNextPage ? response.nextCursor : null
+    } while (cursor)
+
+    const results: bigint[] = []
+
+    for (let coinType of coinTypes) {
+      coinType = normalizeStructTag(coinType)
+      let objectId = dynamicFieldsMap.get(coinType)
+
+      if (!objectId) {
+        results.push(0n)
+        continue
+      }
+
+      try {
+        const dynamicField = await client.getObject({
+          id: objectId,
+          options: {
+            showContent: true,
+          },
+        })
+
+        if (dynamicField.data?.content?.dataType === 'moveObject') {
+          const fieldContent = dynamicField.data.content.fields as any
+          const balance = BigInt(fieldContent.value || '0')
+          results.push(balance)
+        } else {
+          results.push(0n)
+        }
+      } catch {
+        results.push(0n)
+      }
+    }
+
+    return results as SizedArray<bigint, T['length']>
+  }
+
+  /**
    * Calculate pending reward amounts for a position across all rewarders
    * @param pair - The LBPair containing the position
    * @param positionId - ID of the position to check rewards for
@@ -275,19 +389,12 @@ export class PositionModule implements IModule {
     const rewards: PositionReward[] = []
     const sender = this.sdk.senderAddress
     const tx = new Transaction()
-    TransactionUtil.collectPositionFees(
-      {
-        pairId: pair.id,
-        positionId,
-        typeX: pair.tokenXType,
-        typeY: pair.tokenYType,
-        binIds,
-      },
-      this.sdk.sdkOptions,
-      tx
-    )
+    tx.setSender(sender)
+
+    const coins: any[] = []
+
     for (const reward of pair.rewarders) {
-      TransactionUtil.collectPositionRewards(
+      const [_, coin] = TransactionUtil.collectPositionRewards(
         {
           pairId: pair.id,
           positionId,
@@ -299,29 +406,24 @@ export class PositionModule implements IModule {
         this.sdk.sdkOptions,
         tx
       )
+
+      coins.push(coin)
     }
-    const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
+
+    if (coins.length) {
+      tx.transferObjects([...coins], sender)
+    }
+
+    const res = await this.sdk.fullClient.dryRunTransactionBlock({
+      transactionBlock: await tx.build({ client: this.sdk.fullClient }),
+    })
+
+    const rewardEvents = res.events as CollectPositionRewardsEvent[];
     
-    let skipped = false;
-
-    for (const index in res.results ?? []) {
-      if (!skipped) {
-        skipped = true;
-      continue
-      }
-      const result = res.results![index]
-
-      const coin = "0x2::coin::Coin";
-      if (!result.returnValues?.[0]?.[1].startsWith(coin)) {
-        continue
-      }
-      
-      const resValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
-      const value = bcs.struct("", { address: bcs.Address, value: bcs.u64() }).parse(resValue)
-      
+    for (const event of rewardEvents ?? []) {
       rewards.push({
-        amount: value.value,
-        coinType: normalizeStructTag(result.returnValues?.[0]?.[1]),
+        amount: event.parsedJson.amount,
+        coinType: normalizeStructTag(event.parsedJson.reward_type.name),
       })
     }
 
@@ -398,7 +500,7 @@ export class PositionModule implements IModule {
       tx
     )
     const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
-    
+
     for (const index in res.results ?? []) {
       const result = res.results![index]
       const resXValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
@@ -712,3 +814,5 @@ export class PositionModule implements IModule {
 function arrayToMap<T extends { id: number }>(value: T[]): Record<number, T> {
   return value.reduce((p, v) => ((p[v.id] = v), p), {} as Record<number, T>)
 }
+
+type SizedArray<T, S extends number, Arr extends T[] = []> = Arr['length'] extends S ? Arr : SizedArray<T, S, [...Arr, T]>

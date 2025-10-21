@@ -1,6 +1,6 @@
 import BN from 'bn.js'
 import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions'
-import { isValidSuiObjectId } from '@mysten/sui/utils'
+import { isValidSuiObjectId, normalizeStructTag } from '@mysten/sui/utils'
 import {
   AddLiquidityFixTokenParams,
   AddLiquidityParams,
@@ -469,6 +469,120 @@ export class PositionModule implements IModule {
   }
 
   /**
+   * Retrieves the balance of multiple coin types from a RewarderGlobalVault on the SUI network.
+   *
+   * This function queries the RewarderGlobalVault's dynamic fields (stored in a Bag)
+   * to find the balance for each provided coin type. If a coin type is not found in the vault,
+   * it returns 0n for that coin type.
+   *
+   * @param {SuiClient} client - The SUI client instance used to make RPC calls
+   * @param {string} rewarderVaultId - The object ID of the RewarderGlobalVault on SUI blockchain
+   * @param {string[]} coinTypes - Array of coin type identifiers to query balances for
+   *
+   * @returns {Promise<bigint[]>} Array of balances corresponding to each coin type.
+   *                               Returns 0n if a coin type doesn't exist in the vault.
+   *                               The order matches the input coinTypes array.
+   *
+   * @example
+   * ```typescript
+   * const client = new SuiClient({ url: "https://fullnode.mainnet.sui.io" });
+   *
+   * const balances = await getRewarderBalances(
+   *   client,
+   *   "0xd68c56a1610953b0a81c48ad26e463c6c51e50ddcc13e5e4121fe70ee75c1bf7",
+   *   [
+   *     "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
+   *     "0x2::sui::SUI",
+   *   ]
+   * );
+   *
+   * console.log(balances); // [47463762n, 0n]
+   * ```
+   *
+   * @throws {Error} Throws if the vault object is invalid or not a moveObject
+   */
+  public async getRewarderBalances<T extends Array<string>>(coinTypes: T): Promise<SizedArray<bigint, T['length']>> {
+    const config = this.sdk.sdkOptions
+    const client = this.sdk.fullClient
+    const { global_rewarder_vault_id } = config.clmm_pool.config ?? {}
+    if (!global_rewarder_vault_id) {
+      throw new Error('Rewarder vault id not found from config')
+    }
+
+    const vault = await client.getObject({
+      id: global_rewarder_vault_id,
+      options: {
+        showContent: true,
+        showType: true,
+      },
+    })
+
+    if (vault.data?.content?.dataType !== 'moveObject') {
+      throw new Error('Invalid vault object')
+    }
+
+    const vaultContent = vault.data.content.fields as any
+
+    const balancesBagId = vaultContent.balances.fields.id.id
+
+    let cursor: string | null = null
+    const dynamicFieldsMap = new Map<string, string>()
+
+    do {
+      const response = await client.getDynamicFields({
+        parentId: balancesBagId,
+        cursor,
+        limit: 100,
+      })
+
+      for (const field of response.data) {
+        if (field.name.type === '0x1::type_name::TypeName') {
+          const fieldName = field.name.value as any
+
+          const coinType = fieldName.name?.fields?.name || fieldName?.name
+
+          dynamicFieldsMap.set(normalizeStructTag(coinType), field.objectId)
+        }
+      }
+
+      cursor = response.hasNextPage ? response.nextCursor : null
+    } while (cursor)
+
+    const results: bigint[] = []
+
+    for (let coinType of coinTypes) {
+      coinType = normalizeStructTag(coinType)
+      let objectId = dynamicFieldsMap.get(coinType)
+
+      if (!objectId) {
+        results.push(0n)
+        continue
+      }
+
+      try {
+        const dynamicField = await client.getObject({
+          id: objectId,
+          options: {
+            showContent: true,
+          },
+        })
+
+        if (dynamicField.data?.content?.dataType === 'moveObject') {
+          const fieldContent = dynamicField.data.content.fields as any
+          const balance = BigInt(fieldContent.value || '0')
+          results.push(balance)
+        } else {
+          results.push(0n)
+        }
+      } catch {
+        results.push(0n)
+      }
+    }
+
+    return results as SizedArray<bigint, T['length']>
+  }
+
+  /**
    * Creates transaction to add liquidity to a position
    * Automatically handles position creation if needed
    * @param params - Liquidity addition parameters
@@ -893,3 +1007,5 @@ export class PositionModule implements IModule {
     return undefined
   }
 }
+
+type SizedArray<T, S extends number, Arr extends T[] = []> = Arr['length'] extends S ? Arr : SizedArray<T, S, [...Arr, T]>

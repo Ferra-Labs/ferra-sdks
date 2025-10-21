@@ -11,6 +11,14 @@ const MAX_LIQUIDITY_PER_BIN = BigInt('0xffffffffffffffff')
 const MAX_TOTAL_FEE = 100_000_000n
 
 type PairParameters = LBPair['parameters']
+
+type BinManager = {
+  list: LbPairBinData[]
+  map: Map<bigint, LbPairBinData>
+  min: number
+  max: number
+}
+
 export namespace SwapUtils {
   export function getSwapOut(
     pair: LBPair,
@@ -22,6 +30,13 @@ export namespace SwapUtils {
 
     bins = sortBins(bins)
     const binMap = bins.reduce((p, v) => (p.set(v.bin_id, v), p), new Map<bigint, LbPairBinData>())
+    const binIds = bins.map((v) => Number(v.bin_id))
+    const binManager: BinManager = {
+      list: bins,
+      map: binMap,
+      max: Math.max(...binIds),
+      min: Math.min(...binIds),
+    }
 
     let amounts_left_x: bigint, amounts_left_y: bigint
     if (swap_for_y) {
@@ -47,6 +62,7 @@ export namespace SwapUtils {
       }
 
       iterations = iterations + 1n
+      id = get_non_empty_bin(binManager, swap_for_y, id)
 
       if (binMap.has(id)) {
         let bin = binMap.get(id)!
@@ -109,6 +125,34 @@ function get_next_non_empty_bin(bins: LbPairBinData[], swap_for_y: boolean, binI
   }
 }
 
+function get_non_empty_bin(bins: BinManager, swap_for_y: boolean, binId: bigint): bigint {
+  const max_bin = bins.max
+  const min_bin = bins.min
+  
+  while (true) {
+    const hasBin = bins.map.has(binId)
+    if (!hasBin) {
+      if (!swap_for_y) {
+        binId += 1n
+        if (binId > max_bin) {
+          break;
+        }
+      } else {
+        binId -= 1n
+        if (binId < min_bin) {
+          break;
+        }
+      }
+
+      continue
+    }
+
+    return binId
+  }
+
+  throw new Error('There is not enough liquidity')
+}
+
 function assert(condition: boolean, error: string) {
   if (!condition) {
     throw new Error(error)
@@ -169,7 +213,7 @@ function get_swap_amounts(
       return [max_amount_in_with_fee, bin_reserve_out, max_fee]
     } else {
       let fee = get_fee_amount_inclusive(amount_in_available, total_fee)
-      
+
       let amount_in_without_fee = sub_u64(amount_in_available, fee)
 
       let amount_out = swap_amount_out(amount_in_without_fee, price, swap_for_y)
@@ -334,7 +378,6 @@ function x_from_y_price(y: bigint, price: bigint): bigint {
   return y_shifted / price
 }
 
-
 function y_from_x_price(x: bigint, price: bigint): bigint {
   if (x == 0n || price == 0n) {
     return 0n
@@ -342,7 +385,6 @@ function y_from_x_price(x: bigint, price: bigint): bigint {
 
   return (x * price) >> BigInt(SCALE_OFFSET_64X64)
 }
-
 
 function get_variable_fee(params: PairParameters, bin_step: bigint): bigint {
   let variable_fee_control = BigInt(params.variable_fee_control)
@@ -411,7 +453,7 @@ function update_volatility_accumulator(params: LBPair['parameters'], active_id: 
 
   let vol_ref = BigInt(params.volatility_reference)
   let delta = BigInt(delta_id)
-  let basis_max = 10n;
+  let basis_max = 10n
 
   let vol_acc = add_u64(vol_ref, mul_u64(delta, basis_max))
   let max_vol_acc = BigInt(params.max_volatility_accumulator)
