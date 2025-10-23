@@ -1,6 +1,6 @@
 import { LBPair, LbPairBinData } from '../interfaces'
 
-const MAX_LOOP_ITERATIONS = 70
+const MAX_LOOP_ITERATIONS = 7000000000000
 const SCALE_OFFSET_64X64 = 64
 const MAX_U64 = BigInt('0xffffffffffffffff')
 const MAX_FEE = 100_000_000n
@@ -54,14 +54,8 @@ export namespace SwapUtils {
     update_references(temp_parameters, BigInt(now) / 1000n)
 
     let id = active_id
-    let iterations = 0n
 
     while (true) {
-      if (iterations >= MAX_LOOP_ITERATIONS) {
-        break
-      }
-
-      iterations = iterations + 1n
       id = get_non_empty_bin(binManager, swap_for_y, id)
 
       if (binMap.has(id)) {
@@ -105,7 +99,7 @@ export namespace SwapUtils {
       swap_for_y ? amounts_out_y : amounts_out_x,
       swap_for_y ? total_fees_x : total_fees_y,
       id,
-      iterations >= 70,
+      false,
     ]
   }
 }
