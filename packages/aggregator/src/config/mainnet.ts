@@ -18,7 +18,7 @@ export const aggMainnet: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   agg_pkg: {
-    package_id: '0x84b8e7813e60ed47e0fecbb63d1aee10cd5ab3bcaaf5e8a3195749a0a43dd557',
+    package_id: '0x09c6c8b7ebf4c46d8bc9189168d944da5fcb6823bcfd739af71e128550c57292',
     published_at: '0x09c6c8b7ebf4c46d8bc9189168d944da5fcb6823bcfd739af71e128550c57292',
     config: SDKConfig.aggConfig,
   },

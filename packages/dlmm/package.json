@@ -1,6 +1,6 @@
 {
   "name": "@ferra-labs/dlmm",
-  "version": "v1.0.7",
+"version": "v1.0.8",
   "description": "Discrete Liquidity Market Maker SDK",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
