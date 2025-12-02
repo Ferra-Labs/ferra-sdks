@@ -17,7 +17,7 @@ export const dlmmMainnet: SdkOptions = {
   },
   dlmm_pool: {
     package_id: '0x5a5c1d10e4782dbbdec3eb8327ede04bd078b294b97cfdba447b11b846b383ac',
-    published_at: '0x5a5c1d10e4782dbbdec3eb8327ede04bd078b294b97cfdba447b11b846b383ac',
+    published_at: '0x01aca2702b2402f13eacdf9f3e49f5d1bdd3ec5cc7d11847cf8acbaef1cb6d5c',
     config: SDKConfig.dlmmConfig,
   },
   integrate: {
