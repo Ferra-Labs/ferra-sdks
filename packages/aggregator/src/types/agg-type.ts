@@ -1,3 +1,4 @@
+import { SdkV2Options } from '../sdk'
 import { SuiAddressType, SuiObjectIdType } from './sui'
 
 /**
@@ -35,8 +36,13 @@ export type AggregatorConfig = {
 
   },
   Turbos?: {
-   
+
   },
+}
+
+
+export type AggregatorV2Config = {
+  config: string
 }
 
 export type Package<T = undefined> = {
@@ -56,4 +62,15 @@ export type Package<T = undefined> = {
    * The configuration or data contained in the package (optional).
    */
   config?: T
+}
+
+export enum AggProvider {
+    CETUS = "cetus",
+    FLOWX = "flowx",
+    BLUEFIN = "bluefin",
+}
+
+export type AggV2Configs = {
+  provider: AggProvider,
+  options: SdkV2Options
 }

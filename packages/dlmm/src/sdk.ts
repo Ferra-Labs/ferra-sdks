@@ -1,4 +1,5 @@
 import { CoinBalance, SuiHTTPTransport } from '@mysten/sui/client'
+import { SuiGrpcClient } from '@mysten/sui/grpc'
 import { PairModule } from './modules/pair'
 import { QuoterModule } from './modules/quoter'
 import { FactoryModule } from './modules/factory'
@@ -67,6 +68,7 @@ export class FerraDlmmSDK {
    * RPC provider on the SUI chain
    */
   protected _rpcModule: RpcModule
+  protected _grpcModule: SuiGrpcClient
 
   /**
    * Provide interact with dlmm pairs with a pool router interface.
@@ -99,6 +101,17 @@ export class FerraDlmmSDK {
         fetch: fetchRpc
       })
     })
+    try {
+      this._grpcModule = new SuiGrpcClient({
+        baseUrl: options.fullRpcUrl,
+        network: 'mainnet'
+      })
+    } catch (error) {
+      this._grpcModule = new SuiGrpcClient({
+        baseUrl: "https://wallet-rpc.mainnet.sui.io",
+        network: 'mainnet'
+      })
+    }
 
     this._factory = new FactoryModule(this)
     this._pair = new PairModule(this)
@@ -135,6 +148,14 @@ export class FerraDlmmSDK {
    */
   get fullClient(): RpcModule {
     return this._rpcModule
+  }
+
+  /**
+   * Getter for the grpcClient property.
+   * @returns {SuiGrpcClient} The grpcClient property value.
+   */
+  get grpcClient(): SuiGrpcClient {
+    return this._grpcModule
   }
 
   /**

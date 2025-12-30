@@ -52,5 +52,5 @@ temp/
 .npmrc
 
 # release scripts
-release-ferra.sh
+release-ferra.*
 pre-release-check.sh

@@ -13,7 +13,7 @@ export default createTsupConfig({
   },
 
   define: {
-    __DLMM_VERSION__: '"1.0.0"',
+    __CLMM_VERSION__: '"1.0.0"',
     __PACKAGE_NAME__: '"@ferra-sdks/clmm"',
   },
 

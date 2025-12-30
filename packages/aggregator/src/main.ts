@@ -1,6 +1,6 @@
-import { FerraAggregatorSDK, SdkOptions } from './sdk'
+import { FerraAggregatorSDK, SdkOptions, FerraAggregatorV2SDK, SdkV2Options } from './sdk'
 
-export { FerraAggregatorSDK }
-export type { SdkOptions }
+export { FerraAggregatorSDK, FerraAggregatorV2SDK }
+export type { SdkOptions, SdkV2Options }
 
 export default FerraAggregatorSDK

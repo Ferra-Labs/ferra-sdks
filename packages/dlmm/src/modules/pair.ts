@@ -18,10 +18,41 @@ import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
 import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
 import { Transaction, type TransactionResult, coinWithBalance } from '@mysten/sui/transactions'
 import { CoinAssist } from '../math'
-import { bcs } from '@mysten/bcs'
+import { bcs, BcsType } from '@mysten/sui/bcs'
 import { BinReserveOnchain } from '../interfaces/IPosition'
 import { BinReserves } from '../utils/bin_helper'
-import { inspect } from 'util'
+
+const DynamicFieldNode = <K extends BcsType<any>, V extends BcsType<any>>(key: K, value: V) => {
+  return bcs.struct('DynamicFieldNode', {
+    id: bcs.struct('UID', {
+      id: bcs.Address,
+    }),
+    name: key,
+    value,
+  })
+}
+
+const BinNodeStruct = DynamicFieldNode(
+  bcs.u32(),
+  bcs.struct('PackedBins', {
+    fields: bcs.struct('PackedBinsFields', {
+      active_bins_bitmap: bcs.u8(),
+      bin_data: bcs.vector(
+        (() =>
+          bcs.struct('Bin', {
+            bin_id: bcs.u32(),
+            reserve_x: bcs.u64(),
+            reserve_y: bcs.u64(),
+            price: bcs.u128(),
+            fee_growth_x: bcs.u128(),
+            fee_growth_y: bcs.u128(),
+            reward_growths: bcs.vector(bcs.u128()),
+            total_supply: bcs.u128(),
+          }))()
+      ),
+    }),
+  })
+)
 
 /**
  * Module for managing DLMM pairs
@@ -104,7 +135,6 @@ export class PairModule implements IModule {
 
     // Add moveCall for each bin in the range
     for (let i = binRange[0]; i < binRange[1]; i++) {
-      
       tx.moveCall({
         target: `${package_id}::lb_pair::get_bin`,
         arguments: [tx.object(pair.id), tx.pure.u32(i)],
@@ -117,7 +147,7 @@ export class PairModule implements IModule {
       sender: '0x0000000000000000000000000000000000000000000000000000000000000000',
       transactionBlock: tx,
     })
-    
+
     // Parse bin reserves from response
     const bins = res.results as { returnValues: [number[], string][] }[]
     return bins?.map((r) => ({
@@ -221,54 +251,50 @@ export class PairModule implements IModule {
     })[]
   > {
     const binManager = pair.binManager
+    const grpcClient = this.sdk.grpcClient
 
-    const binsFetcher = new RpcBatcher({
-      key: ['pair-reserves', binManager],
-      callback: async (cursor, limit) => {
-        // Get dynamic fields (bins) of the bin manager
-        const fields = await this.sdk.fullClient.getDynamicFields({
-          parentId: binManager,
-          cursor,
-          limit,
-        })
+    const packedBins: (typeof BinNodeStruct.$inferType)[] = []
+    let token: Uint8Array | undefined = undefined
 
-        // Fetch full content of each bin
-        const objects = await this.sdk.fullClient.multiGetObjects({
-          ids: fields.data.map((p) => p.objectId),
-          options: {
-            showContent: true,
-          },
-        })
+    while (true) {
+      const res = await grpcClient.stateService.listDynamicFields({
+        parent: binManager,
+        readMask: {
+          paths: ['field_object.contents'],
+        },
+        pageSize: 500,
+        pageToken: token,
+      }).response
 
-        // Parse bin content
-        const objectsContent = objects.map<BinReserveOnchain | null>(this.getStructContentFields)
+      if (!!res.nextPageToken) {
+        token = getNextPageToken(res)
+      }
 
-        return {
-          data: objectsContent.filter((o) => !!o),
-          hasNextPage: fields.hasNextPage,
-          nextCursor: fields.nextCursor,
-        }
-      },
-      version: pair.version,
-    })
+      const packed = res.dynamicFields.map((v) => BinNodeStruct.parse(v.fieldObject?.contents?.value ?? new Uint8Array()))
 
-    // Fetch all bins and sort by bin ID
-    const bins = await binsFetcher.fetchAll().then((res) => res.sort((a, b) => Number(a.name) - Number(b.name)))
+      packedBins.push(...packed)
+
+      if (packed.length < 500) {
+        break
+      }
+    }
 
     // Convert to BinData format
-    return bins.flatMap(bins => bins.value.fields.bin_data).map(
-      (bin) =>
-        ({
-          id: Number(bin.fields.bin_id),
-          reserve_x: BigInt(bin.fields.reserve_x ?? '0'),
-          reserve_y: BigInt(bin.fields.reserve_y ?? '0'),
-          total_supply: BigInt(bin.fields.total_supply),
-          fee_growth_x: BigInt(bin.fields.fee_growth_x),
-          fee_growth_y: BigInt(bin.fields.fee_growth_y),
-          price: BigInt(bin.fields.price),
-          reward_growths: bin.fields.reward_growths.map(BigInt),
-        }) as BinReserves & { id: number }
-    )
+    return packedBins
+      .flatMap((bins) => bins.value.fields.bin_data)
+      .map(
+        (bin) =>
+          ({
+            id: Number(bin.bin_id),
+            reserve_x: BigInt(bin.reserve_x ?? '0'),
+            reserve_y: BigInt(bin.reserve_y ?? '0'),
+            total_supply: BigInt(bin.total_supply),
+            fee_growth_x: BigInt(bin.fee_growth_x),
+            fee_growth_y: BigInt(bin.fee_growth_y),
+            price: BigInt(bin.price),
+            reward_growths: bin.reward_growths.map(BigInt),
+          }) as BinReserves & { id: number }
+      )
   }
 
   /**
@@ -748,4 +774,8 @@ export function formatBins(
         fee_growth_y: BigInt(b.fee_growth_y),
       }) as LbPairBinData
   )
+}
+
+function getNextPageToken(o: any) {
+  return o.nextPageToken
 }
