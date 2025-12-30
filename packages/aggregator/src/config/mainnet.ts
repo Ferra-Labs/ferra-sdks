@@ -29,7 +29,7 @@ export const aggMainnet: SdkOptions = {
 
 const SDKV2Config = {
   aggConfig: {
-    config: "0x1b3dda03bc575edf7166d00f0afb88213921aaae9f122d3295e25bab5827a667",
+    config: "0x856305e41f85e28e6745778cf40e4f5b8cfb3ca635a28b8cf71cb3c054c8a07d",
   }
 }
 
@@ -51,8 +51,8 @@ export const aggMainnetV2: SdkV2Options = {
   slippageBps: 50, // 0.5% slippage
   fullNodeUrl: "https://wallet-rpc.mainnet.sui.io/",
   agg_pkg: {
-    package_id: "0x54abf84c9e0b63fd6f43e7c926464cf4b94fbe058f774fe5653254318579fa37",
-    published_at: "0x54abf84c9e0b63fd6f43e7c926464cf4b94fbe058f774fe5653254318579fa37",
+    package_id: "0xf5b13fa4687e6a60c24fed34d0f5e74d2af16ec8daf0a005eac23117a143d56c",
+    published_at: "0xf5b13fa4687e6a60c24fed34d0f5e74d2af16ec8daf0a005eac23117a143d56c",
     config: SDKV2Config.aggConfig,
   },
   sender: ""
