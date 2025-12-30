@@ -1,6 +1,6 @@
 {
   "name": "@ferra-labs/aggregator",
-  "version": "v2.0.1",
+  "version": "v2.0.2",
   "description": "Aggregator SDK",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
