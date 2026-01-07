@@ -71,6 +71,9 @@ importers:
       '@cetusprotocol/aggregator-sdk':
         specifier: ^1.4.2
         version: 1.4.2(axios@1.10.0)(typescript@5.8.3)
+      '@mysten/sui.js':
+        specifier: ^0.54.1
+        version: 0.54.1(typescript@5.8.3)
       '@pythnetwork/pyth-sui-js':
         specifier: ^2.4.0
         version: 2.4.0(axios@1.10.0)(typescript@5.8.3)
@@ -89,15 +92,24 @@ importers:
       big.js:
         specifier: ^7.0.1
         version: 7.0.1
+      bignumber.js:
+        specifier: ^9.1.2
+        version: 9.3.1
       bn.js:
         specifier: ^5.2.1
         version: 5.2.2
       cors:
         specifier: ^2.8.5
         version: 2.8.5
+      crypto-js:
+        specifier: ^4.2.0
+        version: 4.2.0
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
+      graphql-request:
+        specifier: ^6.1.0
+        version: 6.1.0(graphql@16.11.0)
       isomorphic-fetch:
         specifier: ^3.0.0
         version: 3.0.0
@@ -107,6 +119,18 @@ importers:
       js-sha3:
         specifier: ^0.8.0
         version: 0.8.0
+      json-bigint:
+        specifier: ^1.0.0
+        version: 1.0.0
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
+      object-hash:
+        specifier: ^3.0.0
+        version: 3.0.0
+      p-limit:
+        specifier: ^3.1.0
+        version: 3.1.0
       superstruct:
         specifier: ^1.0.3
         version: 1.0.4
@@ -138,6 +162,9 @@ importers:
       '@types/jest':
         specifier: ^29.0.0
         version: 29.5.14
+      '@types/lodash':
+        specifier: ^4.17.21
+        version: 4.17.21
       '@types/lossless-json':
         specifier: ^1.0.1
         version: 1.0.4
@@ -1610,6 +1637,9 @@ packages:
 
   '@types/json5@0.0.29':
     resolution: {integrity: sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==}
+
+  '@types/lodash@4.17.21':
+    resolution: {integrity: sha512-FOvQ0YPD5NOfPgMzJihoT+Za5pdkDJWcbpuj1DjaKZIr/gxodQjY/uWEFlTNqW2ugXHUiL8lRQgw63dzKHZdeQ==}
 
   '@types/lossless-json@1.0.4':
     resolution: {integrity: sha512-eHhzo0p2p9On3cTr5X0Q0XsOjJxkqYzQi5Le5ObSiJjnLlGpDQvTcQEXknCkvKOFLBLa8ny4dgJKr0ADRV8yig==}
@@ -5827,7 +5857,6 @@ snapshots:
   '@mysten/bcs@0.11.1':
     dependencies:
       bs58: 5.0.0
-    optional: true
 
   '@mysten/bcs@1.6.3':
     dependencies:
@@ -5857,7 +5886,6 @@ snapshots:
       - '@gql.tada/svelte-support'
       - '@gql.tada/vue-support'
       - typescript
-    optional: true
 
   '@mysten/sui@1.45.2(typescript@5.8.3)':
     dependencies:
@@ -6101,6 +6129,8 @@ snapshots:
   '@types/json-schema@7.0.15': {}
 
   '@types/json5@0.0.29': {}
+
+  '@types/lodash@4.17.21': {}
 
   '@types/lossless-json@1.0.4': {}
 
@@ -6435,13 +6465,11 @@ snapshots:
 
   balanced-match@1.0.2: {}
 
-  base-x@4.0.1:
-    optional: true
+  base-x@4.0.1: {}
 
   base64-js@1.5.1: {}
 
-  bech32@2.0.0:
-    optional: true
+  bech32@2.0.0: {}
 
   better-path-resolve@1.0.0:
     dependencies:
@@ -6491,7 +6519,6 @@ snapshots:
   bs58@5.0.0:
     dependencies:
       base-x: 4.0.1
-    optional: true
 
   bser@2.1.1:
     dependencies:
@@ -6853,7 +6880,6 @@ snapshots:
       node-fetch: 2.7.0
     transitivePeerDependencies:
       - encoding
-    optional: true
 
   cross-spawn@7.0.6:
     dependencies:
@@ -6861,8 +6887,7 @@ snapshots:
       shebang-command: 2.0.0
       which: 2.0.2
 
-  crypto-js@4.2.0:
-    optional: true
+  crypto-js@4.2.0: {}
 
   d3-array@3.2.4:
     dependencies:
@@ -7793,7 +7818,6 @@ snapshots:
       graphql: 16.11.0
     transitivePeerDependencies:
       - encoding
-    optional: true
 
   graphql@16.11.0: {}
 
@@ -8760,8 +8784,7 @@ snapshots:
 
   object-assign@4.1.1: {}
 
-  object-hash@3.0.0:
-    optional: true
+  object-hash@3.0.0: {}
 
   object-inspect@1.13.4: {}
 

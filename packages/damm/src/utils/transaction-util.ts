@@ -91,6 +91,7 @@ export class TransactionUtil {
       enableFeeScheduler = true,
       feeMode = 0,
       isQuoteY = true,
+      activationTimestamp
     } = params
 
     const {
@@ -130,11 +131,87 @@ export class TransactionUtil {
         tx.pure.bool(isQuoteY),
         tx.pure.bool(enableFeeScheduler),
         tx.pure.bool(enableDynamicFee),
-        tx.object(CLOCK_ADDRESS)
+        tx.pure.u64(activationTimestamp ?? Date.now()),
+        tx.object(CLOCK_ADDRESS),
       ],
     })
 
     return tx
+  }
+
+  /**
+   * Creates a new LB pair on the DAMM factory
+   * @param params - Parameters for creating the LB pair
+   *   @param params.tokenXType - Type of token X (must be < tokenYType)
+   *   @param params.tokenYType - Type of token Y (must be > tokenXType)
+   *   @param params.activeId - Initial active bin ID
+   *   @param params.binStep - Bin step in basis points
+   * @param sdkOptions - SDK configuration options
+   * @param tx - Optional existing transaction to add to
+   * @returns Transaction object with pair creation
+   * @throws Error if parameters are invalid
+   */
+  public static createAndReturnLBPair = (
+    params: CreateLBPairParams,
+    sdkOptions: SdkOptions,
+    tx?: Transaction
+  ): [Pair: TransactionResult[number], RepayPair: TransactionResult[number], Transaction] => {
+    const {
+      tokenXType,
+      tokenYType,
+      activeId,
+      binStep,
+      baseFactor,
+      enableDynamicFee = true,
+      enableFeeScheduler = true,
+      feeMode = 0,
+      isQuoteY = true,
+      activationTimestamp
+    } = params
+
+    const {
+      damm_pool: { published_at, config },
+    } = sdkOptions
+    const { global_config, pairs_id } = config ?? {}
+
+    // Validate required configuration
+    if (!global_config) throw new Error('Global Config ID is required')
+    if (!pairs_id) throw new Error('Pairs ID is required')
+
+    // Validate token types
+    if (!tokenXType) throw new Error('Token X type is required')
+    if (!tokenYType) throw new Error('Token Y type is required')
+    if (tokenXType === tokenYType) throw new Error('Tokens must be different')
+
+    // Validate active ID range (24-bit max)
+    if (activeId < 0 || activeId > 0xffffff) throw new Error('Invalid active ID')
+
+    // Validate bin step minimum
+    if (binStep < 1) throw new Error('Bin step must be at least 1')
+
+    // Create transaction if not provided
+    tx ??= new Transaction()
+
+    // Call create_lb_pair function
+    const [pair, repayPair] = tx.moveCall({
+      target: `${published_at}::lb_factory::create_pair_with_receipt`,
+      typeArguments: [tokenXType, tokenYType],
+      arguments: [
+        tx.object(global_config),
+        tx.object(pairs_id),
+        tx.pure.u32(activeId),
+        tx.pure.u16(binStep),
+        tx.pure.u32(baseFactor),
+        tx.pure.u8(feeMode),
+        tx.pure.bool(isQuoteY),
+        tx.pure.bool(enableFeeScheduler),
+        tx.pure.bool(enableDynamicFee),
+        tx.pure.u64(activationTimestamp ?? Date.now()),
+        tx.object(CLOCK_ADDRESS),
+      ],
+    })
+
+    return [pair, repayPair, tx]
   }
 
   /**
@@ -160,7 +237,7 @@ export class TransactionUtil {
     // Open a new position and get the bucket
     const [bucket] = tx.moveCall({
       target: `${published_at}::lb_pair::open_position`,
-      arguments: [tx.object(global_config), tx.object(pair.id)],
+      arguments: [tx.object(global_config), typeof pair.id == 'string' ? tx.object(pair.id) : pair.id],
       typeArguments: [pair.tokenXType, pair.tokenYType],
     })
 
@@ -204,7 +281,7 @@ export class TransactionUtil {
       target: `${published_at}::lb_pair::add_liquidity`,
       arguments: [
         tx.object(global_config),
-        tx.object(pair.id),
+        typeof pair.id == 'string' ? tx.object(pair.id) : pair.id,
         position,
         tx.pure.vector('u32', ids),
         tx.pure.vector('u64', distributionX),
@@ -219,6 +296,30 @@ export class TransactionUtil {
     })
 
     return tx
+  }
+
+  public static sharedTransferPair(
+    pair: TransactionResult[number],
+    pairReceipt: TransactionResult[number],
+    pairTokenX: string,
+    pairTokenY: string,
+    sdkOptions: SdkOptions,
+    tx?: Transaction
+  ) {
+    const {
+      damm_pool: { published_at },
+    } = sdkOptions
+
+    tx ??= new Transaction()
+
+    tx.moveCall({
+      target: `${published_at}::lb_factory::share_pair`,
+      arguments: [
+        pair,
+        pairReceipt,
+      ],
+      typeArguments: [pairTokenX, pairTokenY],
+    })
   }
 
   /**
@@ -643,8 +744,8 @@ export class TransactionUtil {
       target: `${published_at}::lb_pair::lock_position`,
       arguments: [
         tx.object(global_config),
-        tx.object(pairId),
-        tx.object(positionId),
+        typeof pairId === 'string' ? tx.object(pairId) : pairId,
+        typeof positionId === 'string' ? tx.object(positionId) : positionId,
         tx.pure.u64(untilTimestamp),
         tx.object(CLOCK_ADDRESS),
       ],

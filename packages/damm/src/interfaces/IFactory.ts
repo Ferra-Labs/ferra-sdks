@@ -20,6 +20,7 @@ export interface CreateLBPairParams {
     activeId: number;    // u32
     binStep: number;     // u16
     baseFactor: number;
+    activationTimestamp?: number;
     feeMode?: 0 | 1;
     isQuoteY?: boolean;
     enableFeeScheduler?: boolean;

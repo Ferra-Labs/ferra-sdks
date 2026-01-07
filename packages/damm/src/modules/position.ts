@@ -415,11 +415,13 @@ export class PositionModule implements IModule {
    * });
    * ```
    */
-  public async getPositionRewards(pair: LBPair, positionId: string, binIds: number[]): Promise<PositionReward[]> {
+  public async getPositionRewards(pair: LBPair, positionId: string): Promise<PositionReward[]> {
     const rewards: PositionReward[] = []
     const sender = this.sdk.senderAddress
     const tx = new Transaction()
     tx.setSender(sender)
+
+    const bins = await this.getPositionBins(pair, positionId);
 
     const coins: any[] = []
 
@@ -431,7 +433,7 @@ export class PositionModule implements IModule {
           rewardCoin: reward.reward_coin,
           typeX: pair.tokenXType,
           typeY: pair.tokenYType,
-          binIds,
+          binIds: bins.map(b => b.id),
         },
         this.sdk.sdkOptions,
         tx
@@ -473,10 +475,11 @@ export class PositionModule implements IModule {
    * // All pending rewards will be transferred to sender
    * ```
    */
-  public async claimPositionRewards(pair: LBPair, positionId: string, binIds: number[], tx?: Transaction): Promise<Transaction> {
+  public async claimPositionRewards(pair: LBPair, positionId: string, hasLiquidity = true, tx?: Transaction): Promise<Transaction> {
     const sender = this.sdk.senderAddress
     tx ??= new Transaction()
     tx.setSender(sender)
+    const bins = hasLiquidity ? await this.getPositionBins(pair, positionId) : [];
 
     for (const reward of pair.rewarders) {
       const [_, coin] = TransactionUtil.collectPositionRewards(
@@ -486,7 +489,7 @@ export class PositionModule implements IModule {
           rewardCoin: reward.reward_coin,
           typeX: pair.tokenXType,
           typeY: pair.tokenYType,
-          binIds,
+          binIds: bins.map(bin => bin.id),
         },
         this.sdk.sdkOptions,
         tx
@@ -513,10 +516,12 @@ export class PositionModule implements IModule {
    * }
    * ```
    */
-  public async getPositionFees(pair: LBPair, positionId: string, binIds: number[]): Promise<[PositionReward, PositionReward] | null> {
+  public async getPositionFees(pair: LBPair, positionId: string): Promise<[PositionReward, PositionReward] | null> {
     let rewards: [PositionReward, PositionReward] | null = null
     const sender = this.sdk.senderAddress
     const tx = new Transaction()
+
+    const bins = await this.getPositionBins(pair, positionId)
 
     TransactionUtil.getPositionFees(
       {
@@ -524,7 +529,7 @@ export class PositionModule implements IModule {
         positionId,
         typeX: pair.tokenXType,
         typeY: pair.tokenYType,
-        binIds,
+        binIds: bins.map(v => v.id),
       },
       this.sdk.sdkOptions,
       tx
@@ -569,19 +574,20 @@ export class PositionModule implements IModule {
    * // Fees from specified bins will be transferred to sender
    * ```
    */
-  public async claimPositionFee(pair: LBPair, positionId: string, binIds: number[], tx?: Transaction): Promise<Transaction> {
+  public async claimPositionFee(pair: LBPair, positionId: string, hasLiquidity = true, tx?: Transaction): Promise<Transaction> {
     const sender = this.sdk.senderAddress
     const BATCH_SIZE = 1000
     tx ??= new Transaction()
     tx.setSender(sender)
-    for (let index = 0; index < binIds.length; index += BATCH_SIZE) {
-      const bins = binIds.slice(index, index + BATCH_SIZE)
+    const bins = hasLiquidity ? await this.getPositionBins(pair, positionId) : [];
+
+    for (let index = 0; index < bins.length; index += BATCH_SIZE) {
 
       const [_, coinX, coinY] = TransactionUtil.collectPositionFees(
         {
           pairId: pair.id,
           positionId,
-          binIds: bins,
+          binIds: bins.map(bin => bin.id),
           typeX: pair.tokenXType,
           typeY: pair.tokenYType,
         },
@@ -707,7 +713,7 @@ export class PositionModule implements IModule {
       }
     }
 
-    return bins
+    return bins.sort((a, b) => a.id - b.id)
   }
 
   /**

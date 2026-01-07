@@ -21,8 +21,9 @@ export async function main() {
 
   const wallet = keypair.toSuiAddress()
   const sdk = initFerraSDK({ network: 'testnet', wallet })
+  const pairs = await sdk.Pair.getPairs()
   const pair = await sdk.Pair.getPair('0x92661cf56ac72a1cb95b61954661fcdcebbbc6654ed98f40127e604689414e1d')
-
+  
   if (!pair) {
     throw new Error('Pair not found')
   }
@@ -34,6 +35,8 @@ export async function main() {
     amountX: 2_000_000n,
     amountY: 1_000_000_000n
   }, tx)
+
+  TransactionUtil.removeLiquidity(pair, {} as any, sdk.sdkOptions, tx)
 
   let res
 

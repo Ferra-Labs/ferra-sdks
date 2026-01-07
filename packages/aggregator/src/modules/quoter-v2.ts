@@ -55,7 +55,13 @@ export class QuoterV2Module implements IModuleV2 {
       return null
     }
 
-    return quotes[0]
+    const bestQuote = quotes.sort(
+      (a, b) =>
+        Number(b.simulatedAmountOut || b.amountOut) -
+        Number(a.simulatedAmountOut || a.amountOut),
+    )[0];
+
+    return bestQuote
   }
 
 }

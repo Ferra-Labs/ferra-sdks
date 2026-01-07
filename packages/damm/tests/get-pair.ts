@@ -18,17 +18,11 @@ export async function main() {
 
   const wallet = keypair.getPublicKey().toSuiAddress()
   const sdk = initFerraSDK({ network: 'testnet', wallet })
+  const fees = await sdk.Factory.getBaseFeeAvailable()
+  const pair = await sdk.Pair.getPair("0x7214926986d2add63369330b8f407a8af22d8da667989bb0cda018b0e85952de")
+  console.log('pair', fees)
 
-  const pair = await sdk.Pair.getPairs()
-  console.log('pair', pair)
-
-  const pos = await sdk.Position.getLbPositions(pair.data.map(v => v.id), keypair.toSuiAddress())
-  const start = performance.now();
-  const bins = await sdk.Position.getPositionBins(pair.data[0], '0x37879b2057746b36b5391db7f759527b55104b1cc405ed5295cb3dc49533bba3')
-  const stop = performance.now();
-  const stop2 = performance.now();
-
-  console.log('res', pos)
+  console.log('res', pair)
 }
 
 function sum(v: number[]) {

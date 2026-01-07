@@ -48,11 +48,11 @@ export const aggMainnetV2: SdkV2Options = {
       disabled: true
     }
   },
-  slippageBps: 50, // 0.5% slippage
+  slippageBps: 100, // 1% slippage
   fullNodeUrl: "https://wallet-rpc.mainnet.sui.io/",
   agg_pkg: {
-    package_id: "0xf5b13fa4687e6a60c24fed34d0f5e74d2af16ec8daf0a005eac23117a143d56c",
-    published_at: "0xf5b13fa4687e6a60c24fed34d0f5e74d2af16ec8daf0a005eac23117a143d56c",
+    package_id: "0x38fa90a77d04e79ca45add358fd5dcf16ed02228b936b9d3113253bbedbff504",
+    published_at: "0x38fa90a77d04e79ca45add358fd5dcf16ed02228b936b9d3113253bbedbff504",
     config: SDKV2Config.aggConfig,
   },
   sender: ""
@@ -114,6 +114,55 @@ export function initMainnetAggV2SDK(
         ...aggMainnetV2.providers?.flowx,
         ...sdkOptions?.providers?.flowx,
         disabled: provider !== AggProvider.FLOWX
+      },
+      bluefin7k_legacy: {
+        disabled: true
+      }
+    },
+    sender
+  }
+
+  return new FerraAggregatorV2SDK(_sdkOptions)
+}
+
+
+export function initMainnetAggV2SDKWithMultiProviders(
+  providers: AggProvider[] = [AggProvider.CETUS],
+  sender: string,
+  sdkOptions?: Partial<SdkV2Options>
+): FerraAggregatorV2SDK {
+
+  // Create a Set for O(1) lookup
+  const enabledProviders = new Set(providers);
+
+  const _sdkOptions: SdkV2Options = {
+    ...aggMainnetV2,
+    ...sdkOptions && {
+      ...(sdkOptions.fullNodeUrl && { fullNodeUrl: sdkOptions.fullNodeUrl }),
+      ...(sdkOptions.hermesApi && { hermesApi: sdkOptions.hermesApi }),
+      ...(sdkOptions.slippageBps !== undefined && { slippageBps: sdkOptions.slippageBps }),
+      ...(sdkOptions.agg_pkg && {
+        agg_pkg: {
+          ...aggMainnetV2.agg_pkg,
+          ...sdkOptions.agg_pkg
+        }
+      }),
+    },
+    providers: {
+      cetus: {
+        ...aggMainnetV2.providers?.cetus,
+        ...sdkOptions?.providers?.cetus,
+        disabled: !enabledProviders.has(AggProvider.CETUS)
+      },
+      bluefin7k: {
+        ...aggMainnetV2.providers?.bluefin7k,
+        ...sdkOptions?.providers?.bluefin7k,
+        disabled: !enabledProviders.has(AggProvider.BLUEFIN)
+      },
+      flowx: {
+        ...aggMainnetV2.providers?.flowx,
+        ...sdkOptions?.providers?.flowx,
+        disabled: !enabledProviders.has(AggProvider.FLOWX)
       },
       bluefin7k_legacy: {
         disabled: true

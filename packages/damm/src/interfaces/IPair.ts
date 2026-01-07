@@ -32,6 +32,8 @@ export interface LBPair {
   binManager: string
   parameters: PairParameters
   positionManager: string
+  collect_fee_mode: number
+  is_quote_y: boolean
   version: string
   rewarders: {
     reward_coin: string
@@ -216,13 +218,16 @@ export type PairParameters = {
   volatility_reference: U32
   id_reference: U32
   time_of_last_update: U64
+  enabled_fee_scheduler: boolean
+  enabled_dynamic_fee: boolean
   active_id: number
 }
 
 // ===== Utility Types =====
 export type AddLiquidityParams = {
-  amountX: bigint
-  amountY: bigint
+  lockUtil?: number
+  amountX: bigint | TransactionResult[number]
+  amountY: bigint | TransactionResult[number]
   minAmountX?: bigint
   minAmountY?: bigint
 } & (

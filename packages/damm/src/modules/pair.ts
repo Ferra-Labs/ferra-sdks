@@ -121,61 +121,46 @@ const LBPairStruct = bcs.struct('LBPair', {
       id_reference: bcs.u32(),
       time_of_last_update: bcs.u64(),
     }),
+    creator: bcs.Address,
+    whitelisted: ((arg0: BcsType<any>) =>
+      bcs.struct('VecSet', {
+        fields: bcs.struct('VecSetFields', { contents: bcs.vector(arg0) }),
+      }))(bcs.Address),
     collect_fee_mode: bcs.u8(),
     is_quote_y: bcs.bool(),
     protocol_fee_x: bcs.u64(),
     protocol_fee_y: bcs.u64(),
-    bin_manager: (() =>
-      bcs.struct('BinManager', {
-        fields: bcs.struct('BinManagerFields', {
-          bins: ((arg0: BcsType<any>, arg1: BcsType<any>) =>
-            bcs.struct('Table', {
-              id: bcs.struct('0x2::object::ID', { id: bcs.Address }),
-              size: bcs.u64(),
-            }))(
-            bcs.u32(),
-            (() =>
-              bcs.struct('PackedBins', {
-                fields: bcs.struct('PackedBinsFields', {
-                  active_bins_bitmap: bcs.u8(),
-                  bin_data: bcs.vector(
-                    (() =>
-                      bcs.struct('Bin', {
-                        bin_id: bcs.u32(),
-                        reserve_x: bcs.u64(),
-                        reserve_y: bcs.u64(),
-                        price: bcs.u128(),
-                        fee_growth_x: bcs.u128(),
-                        fee_growth_y: bcs.u128(),
-                        reward_growths: bcs.vector(bcs.u128()),
-                        total_supply: bcs.u128(),
-                      }))()
-                  ),
-                }),
-              }))()
-          ),
-          tree: (() =>
-            bcs.struct('TreeUint24', {
-              fields: bcs.struct('TreeUint24Fields', {
-                level0: bcs.u256(),
-                level1: ((arg0: BcsType<any>, arg1: BcsType<any>) =>
-                  bcs.struct('Table', {
-                    id: bcs.struct('0x2::object::ID', {
-                      id: bcs.Address,
-                    }),
-                    size: bcs.u64(),
-                  }))(bcs.u64(), bcs.u256()),
-                level2: ((arg0: BcsType<any>, arg1: BcsType<any>) =>
-                  bcs.struct('Table', {
-                    id: bcs.struct('0x2::object::ID', {
-                      id: bcs.Address,
-                    }),
-                    size: bcs.u64(),
-                  }))(bcs.u64(), bcs.u256()),
-              }),
-            }))(),
+    bin_manager: bcs.struct('BinManager', {
+      fields: bcs.struct('BinManagerFields', {
+        bins: bcs.struct('Table', {
+          id: bcs.struct('0x2::object::ID', { id: bcs.Address }),
+          size: bcs.u64(),
         }),
-      }))(),
+        tree: bcs.struct('TreeUint24', {
+          fields: bcs.struct('TreeUint24Fields', {
+            level0: bcs.u256(),
+            level1: ((arg0: BcsType<any>, arg1: BcsType<any>) =>
+              bcs.struct('Table', {
+                fields: bcs.struct('TableFields', {
+                  id: bcs.struct('0x2::object::ID', {
+                    id: bcs.Address,
+                  }),
+                  size: bcs.u64(),
+                }),
+              }))(bcs.u64(), bcs.u256()),
+            level2: ((arg0: BcsType<any>, arg1: BcsType<any>) =>
+              bcs.struct('Table', {
+                fields: bcs.struct('TableFields', {
+                  id: bcs.struct('0x2::object::ID', {
+                    id: bcs.Address,
+                  }),
+                  size: bcs.u64(),
+                }),
+              }))(bcs.u64(), bcs.u256()),
+          }),
+        }),
+      }),
+    }),
     position_manager: (() =>
       bcs.struct('LBPositionManager', {
         fields: bcs.struct('LBPositionManagerFields', {
@@ -187,60 +172,60 @@ const LBPairStruct = bcs.struct('LBPair', {
               }),
             }))(
             bcs.Address,
-            (() =>
-              bcs.struct('LBPositionInfo', {
-                fields: bcs.struct('LBPositionInfoFields', {
-                  position_id: bcs.Address,
-                  pair_id: bcs.Address,
-                  bins: ((arg0: BcsType<any>, arg1: BcsType<any>) =>
-                    bcs.struct('Table', {
-                      fields: bcs.struct('TableFields', {
-                        id: bcs.struct('0x2::object::ID', {
-                          id: bcs.Address,
-                        }),
-                        size: bcs.u64(),
+            bcs.struct('LBPositionInfo', {
+              fields: bcs.struct('LBPositionInfoFields', {
+                position_id: bcs.Address,
+                pair_id: bcs.Address,
+                bins: ((arg0: BcsType<any>, arg1: BcsType<any>) =>
+                  bcs.struct('Table', {
+                    fields: bcs.struct('TableFields', {
+                      id: bcs.struct('0x2::object::ID', {
+                        id: bcs.Address,
                       }),
-                    }))(
-                    bcs.u32(),
-                    (() =>
-                      bcs.struct('PackedBins', {
+                      size: bcs.u64(),
+                    }),
+                  }))(
+                  bcs.u32(),
+                  (() =>
+                    bcs.struct('PackedBins', {
+                      fields: bcs.struct('PackedBinsFields', {
                         active_bins_bitmap: bcs.u8(),
                         bin_data: bcs.vector(
                           (() =>
                             bcs.struct('LBBinPosition', {
-                              bin_id: bcs.u32(),
-                              amount: bcs.u128(),
-                              fee_growth_inside_last_x: bcs.u128(),
-                              fee_growth_inside_last_y: bcs.u128(),
-                              reward_growth_inside_last: bcs.vector(bcs.u128()),
+                              fields: bcs.struct('LBBinPositionFields', {
+                                bin_id: bcs.u32(),
+                                amount: bcs.u128(),
+                                fee_growth_inside_last_x: bcs.u128(),
+                                fee_growth_inside_last_y: bcs.u128(),
+                                reward_growth_inside_last: bcs.vector(bcs.u128()),
+                              }),
                             }))()
                         ),
-                      }))()
-                  ),
-                  toggle: bcs.u16(),
-                }),
-              }))()
+                      }),
+                    }))()
+                ),
+                toggle: bcs.u16(),
+              }),
+            })
           ),
         }),
       }))(),
     balance_x: bcs.u64(),
     balance_y: bcs.u64(),
-    reward_manager: (() =>
-      bcs.struct('RewarderManager', {
-        rewarders: bcs.vector(
-          (() =>
-            bcs.struct('Rewarder', {
-              emission_per_ms: bcs.u128(),
-              reward_coin: (() =>
-                bcs.struct('TypeName', {
-                  fields: bcs.struct('TypeNameFields', {
-                    name: bcs.String,
-                  }),
-                }))(),
-            }))()
-        ),
-        last_update_timestamp: bcs.u64(),
-      }))(),
+    reward_manager: bcs.struct('RewarderManager', {
+      rewarders: bcs.vector(
+        bcs.struct('Rewarder', {
+          emission_per_ms: bcs.u128(),
+          reward_coin: bcs.struct('TypeName', {
+            fields: bcs.struct('TypeNameFields', {
+              name: bcs.String,
+            }),
+          }),
+        })
+      ),
+      last_update_timestamp: bcs.u64(),
+    }),
   }),
 })
 
@@ -357,8 +342,7 @@ export class PairModule implements IModule {
       },
     })
 
-    const pairsInfo = pairsInfoRaw.response
-      .dynamicFields.map((v) => PairSimpleInfo.parse(v.fieldObject?.contents?.value!))
+    const pairsInfo = pairsInfoRaw.response.dynamicFields.map((v) => PairSimpleInfo.parse(v.fieldObject?.contents?.value!))
 
     const pairsRaw = (
       await this.sdk.grpcClient.ledgerService.batchGetObjects({
@@ -425,8 +409,7 @@ export class PairModule implements IModule {
         token = getNextPageToken(res)
       }
 
-      const packed = res.dynamicFields.map((v) => 
-        BinNodeStruct.parse(v.fieldObject?.contents?.value ?? new Uint8Array()))
+      const packed = res.dynamicFields.map((v) => BinNodeStruct.parse(v.fieldObject?.contents?.value ?? new Uint8Array()))
 
       packedBins.push(...packed)
 
@@ -508,11 +491,15 @@ export class PairModule implements IModule {
         variable_fee_control: String(lbPairOnChain.parameters.variable_fee_control),
         volatility_accumulator: String(lbPairOnChain.parameters.volatility_accumulator),
         volatility_reference: String(lbPairOnChain.parameters.volatility_reference),
+        enabled_fee_scheduler: lbPairOnChain.parameters.enabled_fee_scheduler,
+        enabled_dynamic_fee: lbPairOnChain.parameters.enabled_dynamic_fee,
       },
       rewarders: lbPairOnChain.reward_manager.rewarders.map((r) => ({
         reward_coin: r.reward_coin.fields.name,
         emission_per_ms: r.emission_per_ms,
       })),
+      collect_fee_mode: lbPairOnChain.collect_fee_mode,
+      is_quote_y: lbPairOnChain.is_quote_y,
     }
   }
 
@@ -622,24 +609,30 @@ export class PairModule implements IModule {
     tx.setSenderIfNotSet(sender)
 
     // Build coin objects with specified amounts
-    const amountX = coinWithBalance({
-      type: pair.tokenXType,
-      balance: params.amountX,
-    })
+    const amountX =
+      typeof params.amountX === 'object' && '$kind' in params.amountX
+        ? params.amountX
+        : coinWithBalance({
+            type: pair.tokenXType,
+            balance: params.amountX,
+          })
 
-    const amountY = coinWithBalance({
-      type: pair.tokenYType,
-      balance: params.amountY,
-    })
+    const amountY =
+      typeof params.amountY === 'object' && '$kind' in params.amountY
+        ? params.amountY
+        : coinWithBalance({
+            type: pair.tokenYType,
+            balance: params.amountY,
+          })
 
     // Create new LB position NFT
     const [_, position] = TransactionUtil.createLbPosition(pair, this.sdk.sdkOptions, tx)
 
-    const activeId = pair.parameters.active_id;
+    const activeId = pair.parameters.active_id
     const distributions = DistributionUtils.createParams('SPOT', {
       activeId: activeId,
       binRange: [activeId - 74, activeId + 74],
-      parsedAmounts: [Decimal(params.amountX.toString()), Decimal(params.amountY.toString())]
+      parsedAmounts: [Decimal(params.amountX.toString()), Decimal(params.amountY.toString())],
     })
 
     // Add liquidity to the newly created position
@@ -653,6 +646,20 @@ export class PairModule implements IModule {
           amountX,
           amountY,
           position,
+        },
+        this.sdk.sdkOptions,
+        tx
+      )
+    }
+
+    if (params.lockUtil) {
+      TransactionUtil.lockPosition(
+        {
+          pairId: pair.id,
+          positionId: position as any,
+          typeX: pair.tokenXType,
+          typeY: pair.tokenYType,
+          untilTimestamp: params.lockUtil,
         },
         this.sdk.sdkOptions,
         tx
@@ -751,14 +758,27 @@ export class PairModule implements IModule {
     tx.setSenderIfNotSet(sender)
 
     // Build coin objects with specified amounts
-    const amountX = coinWithBalance({ balance: params.amountX, type: CoinAssist.isSuiCoin(pair.tokenXType) ? undefined : pair.tokenXType })
-    const amountY = coinWithBalance({ balance: params.amountY, type: CoinAssist.isSuiCoin(pair.tokenYType) ? undefined : pair.tokenYType })
+    const amountX =
+      typeof params.amountX === 'object' && '$kind' in params.amountX
+        ? params.amountX
+        : coinWithBalance({
+            type: pair.tokenXType,
+            balance: params.amountX,
+          })
 
-    const activeId = pair.parameters.active_id;
+    const amountY =
+      typeof params.amountY === 'object' && '$kind' in params.amountY
+        ? params.amountY
+        : coinWithBalance({
+            type: pair.tokenXType,
+            balance: params.amountY,
+          })
+
+    const activeId = pair.parameters.active_id
     const distributions = DistributionUtils.createParams('SPOT', {
       activeId: activeId,
       binRange: [activeId - 74, activeId + 74],
-      parsedAmounts: [Decimal(params.amountX.toString()), Decimal(params.amountY.toString())]
+      parsedAmounts: [Decimal(params.amountX.toString()), Decimal(params.amountY.toString())],
     })
 
     // Add liquidity to existing position
@@ -806,7 +826,7 @@ export class PairModule implements IModule {
    * });
    * ```
    */
-  async removeLiquidity(pair: LBPair, params: RemoveLiquidityParams, tx?: Transaction): Promise<Transaction> {
+  async removeLiquidity(pair: LBPair, params: Omit<RemoveLiquidityParams, 'binIds'>, tx?: Transaction): Promise<Transaction> {
     const sender = this.sdk.senderAddress
 
     // Validate sender address
@@ -816,9 +836,10 @@ export class PairModule implements IModule {
         UtilsErrorCode.InvalidSendAddress
       )
     }
+    const bins = await this.sdk.Position.getPositionBins(pair, params.positionId)
 
     // Validate bin IDs array is not empty
-    if (!params.binIds.length) {
+    if (!bins.length) {
       throw new Error('List bin id cannot empty')
     }
 
@@ -827,7 +848,15 @@ export class PairModule implements IModule {
     tx.setSenderIfNotSet(sender)
 
     // Remove liquidity and get output coins
-    const [_, coinX, coinY] = TransactionUtil.removeLiquidity(pair, params, this.sdk.sdkOptions, tx)
+    const [_, coinX, coinY] = TransactionUtil.removeLiquidity(
+      pair,
+      {
+        ...params,
+        binIds: bins.map((bin) => bin.id),
+      },
+      this.sdk.sdkOptions,
+      tx
+    )
 
     // Transfer received coins to sender
     tx.transferObjects([coinX, coinY], sender)
@@ -867,7 +896,7 @@ export class PairModule implements IModule {
     tx.setSender(sender)
 
     if (binAvailable.length) {
-      await this.removeLiquidity(pair, { positionId, binIds: binAvailable }, tx)
+      await this.removeLiquidity(pair, { positionId }, tx)
     }
 
     TransactionUtil.closePosition(pair, { positionId }, this.sdk.sdkOptions, tx)

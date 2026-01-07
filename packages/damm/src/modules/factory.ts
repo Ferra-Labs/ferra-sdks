@@ -4,9 +4,10 @@ import { IModule } from '../interfaces/IModule'
 import { FerraDammSDK } from '../sdk'
 import { CachedContent } from '../utils/cached-content'
 import { isSortedSymbols, TransactionUtil } from '../utils'
-import { Transaction } from '@mysten/sui/transactions'
+import { Transaction, TransactionResult } from '@mysten/sui/transactions'
 import { bcs, BcsType } from '@mysten/sui/bcs'
 import { normalizeSuiAddress } from '@mysten/sui/utils'
+import { LBPair } from '../interfaces'
 
 const GlobalConfigStruct = bcs.struct('GlobalConfig', {
   id: bcs.struct('0x2::object::ID', { id: bcs.Address }),
@@ -28,10 +29,10 @@ const GlobalConfigStruct = bcs.struct('GlobalConfig', {
           variable_fee_control: bcs.u32(),
           max_volatility_accumulator: bcs.u32(),
         }),
-      }),
+      })
     ),
   }),
-});
+})
 
 /**
  * Module for managing DAMM factory operations
@@ -79,7 +80,7 @@ export class FactoryModule implements IModule {
 
     const data = GlobalConfigStruct.parse(configObject?.contents?.value ?? new Uint8Array())
 
-    return data.fee_tiers.contents.map(v => v.value)
+    return data.fee_tiers.contents.map((v) => v.value)
   }
 
   /**
@@ -125,6 +126,67 @@ export class FactoryModule implements IModule {
       {
         ...params,
       },
+      this.sdk.sdkOptions,
+      tx
+    )
+
+    /**
+     * Set sender if not already set
+     * Required for transaction execution
+     */
+    if (sender) {
+      tx.setSenderIfNotSet(sender)
+    }
+
+    return tx
+  }
+
+  public createLBPairWithCallback = async (
+    params: Omit<CreateLBPairParams, 'packageId' | 'factoryId'>,
+    callback: (pair: LBPair) => Promise<void>,
+    tx?: Transaction
+  ): Promise<Transaction> => {
+    // Get sender address from SDK
+    const sender = this.sdk.senderAddress
+    /**
+     * Sort tokens to ensure consistent ordering
+     * DAMM requires tokenX < tokenY for proper pair creation
+     */
+    if (isSortedSymbols(normalizeSuiAddress(params.tokenXType), normalizeSuiAddress(params.tokenYType))) {
+      // Swap token types if they're in wrong order
+      const swapCoinTypeY = params.tokenYType
+      params.tokenYType = params.tokenXType
+      params.tokenXType = swapCoinTypeY
+    }
+
+    tx ??= new Transaction()
+
+    /**
+     * Create the LB pair transaction
+     * This will add the necessary move calls to create a new pair
+     */
+    const [pair, repayPair] = TransactionUtil.createAndReturnLBPair(
+      {
+        ...params,
+      },
+      this.sdk.sdkOptions,
+      tx
+    )
+
+    await callback({
+      id: pair,
+      tokenXType: params.tokenXType,
+      tokenYType: params.tokenYType,
+      parameters: {
+        active_id: params.activeId,
+      },
+    } as unknown as LBPair)
+
+    TransactionUtil.sharedTransferPair(
+      pair,
+      repayPair,
+      params.tokenXType,
+      params.tokenYType,
       this.sdk.sdkOptions,
       tx
     )

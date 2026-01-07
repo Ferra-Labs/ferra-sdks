@@ -1,13 +1,13 @@
 // AggSwapModule.ts
 import { AggPairsError, UtilsErrorCode } from "../errors/errors"
 import { FerraAggregatorV2SDK } from "../sdk"
-import { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions"
+import { Transaction } from "@mysten/sui/transactions"
 import { checkValidSuiAddress, TransactionUtil } from "../utils"
 import { IModuleV2 } from "../interfaces/IModuleV2"
 import { TxBuilder } from "../utils/tx-builder"
 import { SwapV2Params } from "../interfaces/IAggSwapV2"
 import { AggregatorError, RouterDataV3 } from "@cetusprotocol/aggregator-sdk"
-import { EProvider } from "@7kprotocol/sdk-ts"
+import { EProvider, FlowxQuoteResponse } from "@7kprotocol/sdk-ts"
 
 /**
  * AggSwapV2Module - Module for executing swaps through various DEX aggregators
@@ -93,7 +93,16 @@ export class AggSwapV2Module implements IModuleV2 {
         break
 
       case EProvider.FLOWX:
-        throw new AggregatorError("FlowX support coming soon")
+        tx = await new TxBuilder(this._sdk).swapOnFlowX({
+          fromType,
+          targetType,
+          coinIn,
+          quote: params.quote.quote as FlowxQuoteResponse,
+          slippageBps,
+          tx,
+          sender,
+        })
+        break
 
       case EProvider.BLUEFIN7K:
         throw new AggregatorError("Bluefin support coming soon")

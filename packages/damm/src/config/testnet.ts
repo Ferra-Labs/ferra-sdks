@@ -3,9 +3,9 @@ import { checkValidSuiAddress } from '../utils'
 
 const SDKConfig = {
   dammConfig: {
-    global_config: '0x56bc4d06d963efe7699aa2eea8e47751ed3649a050144eb1c8ed4cbbbc58b0fa',
-    pairs_id: '0x0b5f773f3de20460f2861c9785b3f4aeebde5c1feae68651f288f51c660b70d8',
-    reward_vault: '0x1ca1f2d079504fa71955d58d2bea89b0c9c58b7c97eaf3d422198d952a723e4c',
+    global_config: '0x51ea54b4257f8d187cd79e9c874fbbac9d0489cb6b391a54dcc29bbd864b3438',
+    pairs_id: '0x2909eb51cba8bd35618875d7a4a388a9d33e6a4d87bfa0a72b2808d5af5c192a',
+    reward_vault: '0xe02e84bf822aeff1bcb076796df797d74c8caf3e29612d3d8056ac71f7ed9264',
   }
 }
 
@@ -17,8 +17,8 @@ export const dammTestnet: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   damm_pool: {
-    package_id: '0x809df5840765842809af5fdca85db642e0de615de8899884a022b2f8608f84d5',
-    published_at: '0x809df5840765842809af5fdca85db642e0de615de8899884a022b2f8608f84d5',
+    package_id: '0xd3a348222bbded76737cbefd2416ad151688c7bf9a3425e7f746b519585ab9e8',
+    published_at: '0xd3a348222bbded76737cbefd2416ad151688c7bf9a3425e7f746b519585ab9e8',
     config: SDKConfig.dammConfig,
   },
   integrate: {

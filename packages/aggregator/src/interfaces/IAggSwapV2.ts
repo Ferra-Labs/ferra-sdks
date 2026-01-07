@@ -1,6 +1,17 @@
-import { MetaQuote } from "@7kprotocol/sdk-ts";
+import { FlowxQuoteResponse, MetaQuote } from "@7kprotocol/sdk-ts";
 import { RouterDataV3 } from "@cetusprotocol/aggregator-sdk";
 import { Transaction, TransactionObjectArgument } from "@mysten/sui/dist/cjs/transactions";
+
+
+export interface SwapFlowXInput {
+    tx: Transaction;
+    sender: string;
+    fromType: string;
+    targetType: string;
+    coinIn: TransactionObjectArgument;
+    slippageBps: number;
+    quote: FlowxQuoteResponse;
+}
 
 
 export type SwapV2Params = {

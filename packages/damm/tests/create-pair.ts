@@ -1,7 +1,8 @@
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
-import { BinMath, initFerraSDK, isSortedSymbols } from '../src'
+import { BinMath, CreateLBPairParams, initFerraSDK, isSortedSymbols, LBPair } from '../src'
 import { fromBase64 } from '@mysten/sui/utils'
 import { decodeSuiPrivateKey } from '@mysten/sui/cryptography'
+import { Transaction } from '@mysten/sui/transactions'
 
 const SUI_COINTYPE = '0xb45fcfcc2cc07ce0702cc2d229621e046c906ef14d9b25e8e4d25f6e8763fef7::send::SEND'
 const USDC_COINTYPE = '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC'
@@ -28,30 +29,55 @@ export async function main() {
   } else {
     keypair = Ed25519Keypair.deriveKeypair(mnemonic)
   }
-  
+
+  console.log('wallet', keypair.toSuiAddress())
+
   const wallet = keypair.getPublicKey().toSuiAddress()
   const sdk = initFerraSDK({ network: 'testnet', wallet })
 
-  const TEST = true
+  const TEST = false
   const fees = await sdk.Factory.getBaseFeeAvailable()
-  console.log('fees', fees);
-  
+
   const binStep = 80
   let inititalPrice = 0.2225
   let activeId = BinMath.getIdFromPrice(inititalPrice, binStep, COIN_X.decimals, COIN_Y.decimals)
 
   if (isSortedSymbols(COIN_X.type, COIN_Y.type)) {
-    inititalPrice = 1 / inititalPrice;
+    inititalPrice = 1 / inititalPrice
     activeId = BinMath.getIdFromPrice(inititalPrice, binStep, COIN_Y.decimals, COIN_X.decimals)
   }
 
-  const tx = await sdk.Factory.createLBPair({
+  const tx = new Transaction()
+
+  const createPairParams = {
     activeId: Number(activeId),
     binStep,
     tokenXType: USDC_COINTYPE,
     tokenYType: SUI_COINTYPE,
-    baseFactor: fees[0].base_factor
-  })
+    baseFactor: fees[0].base_factor,
+    activationTimestamp: Date.now() + 10000
+  } as CreateLBPairParams
+
+  const liquidityX = 166932n
+  const liquidityY = 1000_000n
+
+  await sdk.Factory.createLBPairWithCallback(
+    createPairParams,
+    async (pair) => {
+      console.log('pair', pair);
+      
+      await sdk.Pair.openPositionAndAddLiquidity(
+        pair,
+        {
+          amountX: pair.tokenXType == createPairParams.tokenXType ? liquidityX : liquidityY,
+          amountY: pair.tokenYType == createPairParams.tokenYType ? liquidityY : liquidityX,
+        },
+        tx
+      )
+    },
+    tx
+  )
+  tx.setSender(keypair.toSuiAddress())
 
   let res
 
