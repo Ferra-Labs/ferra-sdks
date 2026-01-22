@@ -1,7 +1,7 @@
 import BN from 'bn.js'
 import Decimal from '../utils/decimal'
 
-import { DammPairsError, MathErrorCode } from '../errors/errors'
+import { DammpoolsError, MathErrorCode } from '../errors/errors'
 
 export const ZERO = new BN(0)
 
@@ -9,7 +9,7 @@ export const ONE = new BN(1)
 
 export const TWO = new BN(2)
 
-export const U128_ = TWO.pow(new BN(128))
+export const U128 = TWO.pow(new BN(128))
 
 export const U64_MAX = TWO.pow(new BN(64)).sub(ONE)
 
@@ -72,7 +72,7 @@ export class MathUtil {
   static checkUnsignedSub(n0: BN, n1: BN): BN {
     const n = n0.sub(n1)
     if (n.isNeg()) {
-      throw new DammPairsError('Unsigned integer sub overflow', MathErrorCode.UnsignedIntegerOverflow)
+      throw new DammpoolsError('Unsigned integer sub overflow', MathErrorCode.UnsignedIntegerOverflow)
     }
     return n
   }
@@ -80,40 +80,40 @@ export class MathUtil {
   static checkMul(n0: BN, n1: BN, limit: number): BN {
     const n = n0.mul(n1)
     if (this.isOverflow(n, limit)) {
-      throw new DammPairsError('Multiplication overflow', MathErrorCode.MulOverflow)
+      throw new DammpoolsError('Multiplication overflow', MathErrorCode.MulOverflow)
     }
     return n
   }
 
   static checkMulDivFloor(n0: BN, n1: BN, denom: BN, limit: number): BN {
     if (denom.eq(ZERO)) {
-      throw new DammPairsError('Devide by zero', MathErrorCode.DivideByZero)
+      throw new DammpoolsError('Devide by zero', MathErrorCode.DivideByZero)
     }
     const n = n0.mul(n1).div(denom)
     if (this.isOverflow(n, limit)) {
-      throw new DammPairsError('Multiplication div overflow', MathErrorCode.MulDivOverflow)
+      throw new DammpoolsError('Multiplication div overflow', MathErrorCode.MulDivOverflow)
     }
     return n
   }
 
   static checkMulDivCeil(n0: BN, n1: BN, denom: BN, limit: number): BN {
     if (denom.eq(ZERO)) {
-      throw new DammPairsError('Devide by zero', MathErrorCode.DivideByZero)
+      throw new DammpoolsError('Devide by zero', MathErrorCode.DivideByZero)
     }
     const n = n0.mul(n1).add(denom.sub(ONE)).div(denom)
     if (this.isOverflow(n, limit)) {
-      throw new DammPairsError('Multiplication div overflow', MathErrorCode.MulDivOverflow)
+      throw new DammpoolsError('Multiplication div overflow', MathErrorCode.MulDivOverflow)
     }
     return n
   }
 
   static checkMulDivRound(n0: BN, n1: BN, denom: BN, limit: number): BN {
     if (denom.eq(ZERO)) {
-      throw new DammPairsError('Devide by zero', MathErrorCode.DivideByZero)
+      throw new DammpoolsError('Devide by zero', MathErrorCode.DivideByZero)
     }
     const n = n0.mul(n1.add(denom.shrn(1))).div(denom)
     if (this.isOverflow(n, limit)) {
-      throw new DammPairsError('Multiplication div overflow', MathErrorCode.MulDivOverflow)
+      throw new DammpoolsError('Multiplication div overflow', MathErrorCode.MulDivOverflow)
     }
     return n
   }
@@ -122,7 +122,7 @@ export class MathUtil {
     const n = n0.mul(n1).div(new BN(2).pow(new BN(shift)))
     // const n = n0.mul(n1).shrn(shift)
     if (this.isOverflow(n, limit)) {
-      throw new DammPairsError('Multiplication shift right overflow', MathErrorCode.MulShiftRightOverflow)
+      throw new DammpoolsError('Multiplication shift right overflow', MathErrorCode.MulShiftRightOverflow)
     }
     return n
   }
@@ -132,7 +132,7 @@ export class MathUtil {
     const shoudRoundUp = roundUp && p.and(U64_MAX).gt(ZERO)
     const result = shoudRoundUp ? p.shrn(64).add(ONE) : p.shrn(64)
     if (this.isOverflow(result, limit)) {
-      throw new DammPairsError('Multiplication shift right overflow', MathErrorCode.MulShiftRightOverflow)
+      throw new DammpoolsError('Multiplication shift right overflow', MathErrorCode.MulShiftRightOverflow)
     }
     return result
   }
@@ -140,14 +140,14 @@ export class MathUtil {
   static checkMulShiftLeft(n0: BN, n1: BN, shift: number, limit: number): BN {
     const n = n0.mul(n1).shln(shift)
     if (this.isOverflow(n, limit)) {
-      throw new DammPairsError('Multiplication shift left overflow', MathErrorCode.MulShiftLeftOverflow)
+      throw new DammpoolsError('Multiplication shift left overflow', MathErrorCode.MulShiftLeftOverflow)
     }
     return n
   }
 
   static checkDivRoundUpIf(n0: BN, n1: BN, roundUp: boolean): BN {
     if (n1.eq(ZERO)) {
-      throw new DammPairsError('Devide by zero', MathErrorCode.DivideByZero)
+      throw new DammpoolsError('Devide by zero', MathErrorCode.DivideByZero)
     }
     if (roundUp) {
       return this.divRoundUp(n0, n1)

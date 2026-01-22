@@ -35,7 +35,6 @@ export function initFerraSDK(options: InitFerraSDKOptions): FerraDammSDK {
   return initTestnetSDK(fullNodeUrl, wallet)
 }
 
-
 export function initFerraDammSDK(options: InitFerraSDKOptions): FerraDammSDK {
   return initFerraSDK(options)
 }

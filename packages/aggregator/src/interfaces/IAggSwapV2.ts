@@ -1,4 +1,4 @@
-import { FlowxQuoteResponse, MetaQuote } from "@7kprotocol/sdk-ts";
+import { FlowxQuoteResponse, MetaQuote, QuoteResponse } from "@7kprotocol/sdk-ts";
 import { RouterDataV3 } from "@cetusprotocol/aggregator-sdk";
 import { Transaction, TransactionObjectArgument } from "@mysten/sui/dist/cjs/transactions";
 
@@ -12,6 +12,17 @@ export interface SwapFlowXInput {
     slippageBps: number;
     quote: FlowxQuoteResponse;
 }
+
+export interface SwapBluefin7kInput {
+    tx: Transaction;
+    sender: string;
+    fromType: string;
+    targetType: string;
+    coinIn: TransactionObjectArgument;
+    slippageBps: number;
+    quote: QuoteResponse;
+}
+
 
 
 export type SwapV2Params = {
@@ -31,4 +42,12 @@ export type SwapCetusInput = {
     slippageBps: number,
     tx: Transaction,
     sender: string
+}
+
+/**
+ * Ferra protocol configuration
+ */
+export interface FerraConfig {
+    packageId: string;
+    configId: string;
 }

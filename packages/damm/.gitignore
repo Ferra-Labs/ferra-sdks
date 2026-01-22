@@ -1,1 +1,13 @@
 /node_modules
+.DS_Store
+dist/**/*
+/.vscode/
+package.test.json
+/examples/node_modules
+/examples/package-lock.json
+/examples/*.js
+/.husky
+/.idea
+.env
+.env.local
+.npmrc

@@ -1,6 +1,6 @@
 import { TransactionArgument } from '@mysten/sui/transactions'
 import Decimal from 'decimal.js'
-import { DammPairsError, TypesErrorCode } from '../errors/errors'
+import { DammpoolsError, TypesErrorCode } from '../errors/errors'
 
 /**
  * Represents a SUI address, which is a string.
@@ -20,13 +20,15 @@ export type BigNumber = Decimal.Value | number | string
 export const CLOCK_ADDRESS = '0x0000000000000000000000000000000000000000000000000000000000000006'
 
 /**
- * Constants for different modules in the DAMM.
+ * Constants for different modules in the DAMM (Cryptocurrency Liquidity Mining Module).
  */
-export const DammFactoryModule = 'lb_factory'
-export const DammPairModule = 'lb_pair'
-export const DammQuoterModule = 'lb_quoter'
-export const DammRouterModule = 'lb_router'
-export const DammTokenModule = 'lb_token'
+export const DammPartnerModule = 'partner'
+export const DammIntegratePoolModule = 'pool_script'
+export const DammIntegrateRouterModule = 'router'
+export const DammIntegrateRouterWithPartnerModule = 'router_with_partner'
+export const DammFetcherModule = 'fetcher_script'
+export const DammExpectSwapModule = 'expect_swap'
+export const DammIntegrateUtilsModule = 'utils'
 
 /**
  * The address for CoinInfo module.
@@ -36,6 +38,7 @@ export const CoinInfoAddress = '0x1::coin::CoinInfo'
  * The address for CoinStore module.
  */
 export const CoinStoreAddress = '0x1::coin::CoinStore'
+
 /**
  * Represents a SUI resource, which can be of any type.
  */
@@ -164,5 +167,5 @@ export const getDefaultSuiInputType = (value: any): SuiInputTypes => {
   if (typeof value === 'boolean') {
     return 'bool' // Treat boolean values as 'bool' type.
   }
-  throw new DammPairsError(`Unknown type for value: ${value}`, TypesErrorCode.InvalidType)
+  throw new DammpoolsError(`Unknown type for value: ${value}`, TypesErrorCode.InvalidType)
 }

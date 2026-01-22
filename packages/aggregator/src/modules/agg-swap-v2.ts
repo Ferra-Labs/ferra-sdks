@@ -7,7 +7,7 @@ import { IModuleV2 } from "../interfaces/IModuleV2"
 import { TxBuilder } from "../utils/tx-builder"
 import { SwapV2Params } from "../interfaces/IAggSwapV2"
 import { AggregatorError, RouterDataV3 } from "@cetusprotocol/aggregator-sdk"
-import { EProvider, FlowxQuoteResponse } from "@7kprotocol/sdk-ts"
+import { EProvider, FlowxQuoteResponse, QuoteResponse } from "@7kprotocol/sdk-ts"
 
 /**
  * AggSwapV2Module - Module for executing swaps through various DEX aggregators
@@ -75,7 +75,7 @@ export class AggSwapV2Module implements IModuleV2 {
 
     // Prepare input coin
     const coinIn = TransactionUtil.buildCoinAmount(fromType, BigInt(amountIn ?? 0n))
-
+    console.log(`params.quote.provider`,params.quote.provider)
     // Route to appropriate provider's swap builder
     switch (params.quote.provider) {
       case EProvider.CETUS:
@@ -105,7 +105,16 @@ export class AggSwapV2Module implements IModuleV2 {
         break
 
       case EProvider.BLUEFIN7K:
-        throw new AggregatorError("Bluefin support coming soon")
+        tx = await new TxBuilder(this._sdk).swapOnBluefin7k({
+          fromType,
+          targetType,
+          coinIn,
+          quote: params.quote.quote as QuoteResponse,
+          slippageBps,
+          tx,
+          sender,
+        })
+        break
 
       default:
         throw new AggregatorError("Provider not supported")

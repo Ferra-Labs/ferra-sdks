@@ -1,5 +1,5 @@
 // eslint-disable-next-line import/no-import-module-exports
-import { DammPairsError, TypesErrorCode } from '../errors/errors'
+import { DammpoolsError, TypesErrorCode } from '../errors/errors'
 
 const HEX_REGEXP = /^[-+]?[0-9A-Fa-f]+\.?[0-9A-Fa-f]*?$/
 
@@ -60,7 +60,7 @@ export function toBuffer(v: any): Buffer {
       // converts a BN to a Buffer
       v = Buffer.from(v.toArray())
     } else {
-      throw new DammPairsError(`Invalid type`, TypesErrorCode.InvalidType)
+      throw new DammpoolsError(`Invalid type`, TypesErrorCode.InvalidType)
     }
   }
   return v

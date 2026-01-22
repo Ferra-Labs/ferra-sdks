@@ -1,5 +1,5 @@
 import { Transaction } from '@mysten/sui/transactions'
-import { DammPairsError, UtilsErrorCode } from '../errors/errors'
+import { DammpoolsError, UtilsErrorCode } from '../errors/errors'
 import { isValidSuiAddress } from '@mysten/sui/utils'
 
 /**
@@ -26,12 +26,12 @@ export class TxBlock {
    */
   transferSuiToMany(recipients: string[], amounts: number[]) {
     if (recipients.length !== amounts.length) {
-      throw new DammPairsError('The length of recipients and amounts must be the same', UtilsErrorCode.InvalidRecipientAndAmountLength)
+      throw new DammpoolsError('The length of recipients and amounts must be the same', UtilsErrorCode.InvalidRecipientAndAmountLength)
     }
 
     for (const recipient of recipients) {
       if (!checkValidSuiAddress(recipient)) {
-        throw new DammPairsError('Invalid recipient address', UtilsErrorCode.InvalidRecipientAddress)
+        throw new DammpoolsError('Invalid recipient address', UtilsErrorCode.InvalidRecipientAddress)
       }
     }
 
@@ -54,7 +54,7 @@ export class TxBlock {
    */
   transferSui(recipient: string, amount: number) {
     if (!checkValidSuiAddress(recipient)) {
-      throw new DammPairsError('Invalid recipient address', UtilsErrorCode.InvalidRecipientAddress)
+      throw new DammpoolsError('Invalid recipient address', UtilsErrorCode.InvalidRecipientAddress)
     }
 
     return this.transferSuiToMany([recipient], [amount])
@@ -70,7 +70,7 @@ export class TxBlock {
    */
   transferCoin(recipient: string, amount: number, coinObjectIds: string[]) {
     if (!checkValidSuiAddress(recipient)) {
-      throw new DammPairsError('Invalid recipient address', UtilsErrorCode.InvalidRecipientAddress)
+      throw new DammpoolsError('Invalid recipient address', UtilsErrorCode.InvalidRecipientAddress)
     }
 
     const tx = this.txBlock

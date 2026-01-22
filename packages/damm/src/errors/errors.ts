@@ -38,6 +38,15 @@ export enum PositionErrorCode {
   InvalidPositionRewardObject = `InvalidPositionRewardObject`,
 }
 
+export enum PoolErrorCode {
+  InvalidCoinTypeSequence = `InvalidCoinTypeSequence`,
+  InvalidTickIndex = `InvalidTickIndex`,
+  InvalidPoolObject = `InvalidPoolObject`,
+  InvalidTickObjectId = `InvalidTickObjectId`,
+  InvalidTickObject = `InvalidTickObject`,
+  InvalidTickFields = `InvalidTickFields`,
+  PoolsNotFound = `PoolsNotFound`
+}
 
 export enum PartnerErrorCode {
   NotFoundPartnerObject = `NotFoundPartnerObject`,
@@ -72,10 +81,11 @@ export enum TypesErrorCode {
   InvalidType = `InvalidType`,
 }
 
-export type DammPairsErrorCode =
+export type DammpoolsErrorCode =
   | MathErrorCode
   | SwapErrorCode
   | CoinErrorCode
+  | PoolErrorCode
   | PositionErrorCode
   | PartnerErrorCode
   | ConfigErrorCode
@@ -83,18 +93,18 @@ export type DammPairsErrorCode =
   | RouterErrorCode
   | TypesErrorCode
 
-export class DammPairsError extends Error {
+export class DammpoolsError extends Error {
   override message: string
 
-  errorCode?: DammPairsErrorCode
+  errorCode?: DammpoolsErrorCode
 
-  constructor(message: string, errorCode?: DammPairsErrorCode) {
+  constructor(message: string, errorCode?: DammpoolsErrorCode) {
     super(message)
     this.message = message
     this.errorCode = errorCode
   }
 
-  static isClmmpoolsErrorCode(e: any, code: DammPairsErrorCode): boolean {
-    return e instanceof DammPairsError && e.errorCode === code
+  static isDammpoolsErrorCode(e: any, code: DammpoolsErrorCode): boolean {
+    return e instanceof DammpoolsError && e.errorCode === code
   }
 }

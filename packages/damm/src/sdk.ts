@@ -1,13 +1,12 @@
-import { CoinBalance, SuiHTTPTransport } from '@mysten/sui/client'
-import { SuiGrpcClient } from '@mysten/sui/grpc'
-import { PairModule } from './modules/pair'
-import { QuoterModule } from './modules/quoter'
-import { FactoryModule } from './modules/factory'
+import { CoinBalance } from '@mysten/sui/client'
+import { PoolModule } from './modules/pool'
+import { PositionModule } from './modules/position'
+import { RewarderModule } from './modules/rewarder'
+import { RouterModule } from './modules/router'
+import { SwapModule } from './modules/swap'
 import { CachedContent, cacheTime24h, extractStructTagFromType, getFutureTime, patchFixSuiObjectId } from './utils'
 import { DammConfig, CoinAsset, Package, SuiResource, SuiAddressType, TokenConfig } from './types'
-import { RpcModule } from './utils/rpc'
-import { PositionModule } from './modules/position'
-import { SwapModule } from './modules/swap'
+import { RpcModule } from './modules/rpc'
 
 /**
  * Represents options and configurations for an SDK.
@@ -33,7 +32,10 @@ export type SdkOptions = {
     address: string
   }
 
-
+  /**
+   * Package containing faucet-related configurations.
+   */
+  faucet?: Package
 
   /**
    * Package containing token-related configurations.
@@ -53,8 +55,7 @@ export type SdkOptions = {
   /**
    * The URL for the swap count
    */
-  dammApiUrl?: string
-
+  swapCountUrl?: string
 
 }
 
@@ -68,20 +69,31 @@ export class FerraDammSDK {
    * RPC provider on the SUI chain
    */
   protected _rpcModule: RpcModule
-  protected _grpcModule: SuiGrpcClient
 
   /**
-   * Provide interact with damm pairs with a pool router interface.
+   * Provide interact with damm pools with a pool router interface.
    */
-  protected _pair: PairModule
+  protected _pool: PoolModule
 
+  /**
+   * Provide interact with damm position with a position router interface.
+   */
   protected _position: PositionModule
 
-  protected _factory: FactoryModule
-
-  protected _quoter: QuoterModule
-
+  /**
+   * Provide interact with a pool swap router interface.
+   */
   protected _swap: SwapModule
+
+  /**
+   * Provide interact  with a position rewarder interface.
+   */
+  protected _rewarder: RewarderModule
+
+  /**
+   * Provide interact with a pool router interface.
+   */
+  protected _router: RouterModule
 
   /**
    *  Provide sdk options
@@ -96,28 +108,14 @@ export class FerraDammSDK {
   constructor(options: SdkOptions) {
     this._sdkOptions = options
     this._rpcModule = new RpcModule({
-      transport: new SuiHTTPTransport({
-        url: options.fullRpcUrl,
-        fetch: fetchRpc
-      })
+      url: options.fullRpcUrl,
     })
-    try {
-      this._grpcModule = new SuiGrpcClient({
-        baseUrl: options.fullRpcUrl,
-        network: 'mainnet'
-      })
-    } catch (error) {
-      this._grpcModule = new SuiGrpcClient({
-        baseUrl: "https://wallet-rpc.mainnet.sui.io",
-        network: 'mainnet'
-      })
-    }
 
-    this._factory = new FactoryModule(this)
-    this._pair = new PairModule(this)
-    this._quoter = new QuoterModule(this)
-    this._position = new PositionModule(this)
     this._swap = new SwapModule(this)
+    this._pool = new PoolModule(this)
+    this._position = new PositionModule(this)
+    this._rewarder = new RewarderModule(this)
+    this._router = new RouterModule(this)
 
     patchFixSuiObjectId(this._sdkOptions)
   }
@@ -138,8 +136,12 @@ export class FerraDammSDK {
     this._senderAddress = value
   }
 
-  get Factory(): FactoryModule {
-    return this._factory
+  /**
+   * Getter for the Swap property.
+   * @returns {SwapModule} The Swap property value.
+   */
+  get Swap(): SwapModule {
+    return this._swap
   }
 
   /**
@@ -148,14 +150,6 @@ export class FerraDammSDK {
    */
   get fullClient(): RpcModule {
     return this._rpcModule
-  }
-
-  /**
-   * Getter for the grpcClient property.
-   * @returns {SuiGrpcClient} The grpcClient property value.
-   */
-  get grpcClient(): SuiGrpcClient {
-    return this._grpcModule
   }
 
   /**
@@ -170,24 +164,32 @@ export class FerraDammSDK {
    * Getter for the Pool property.
    * @returns {PoolModule} The Pool property value.
    */
-  get Pair(): PairModule {
-    return this._pair
+  get Pool(): PoolModule {
+    return this._pool
   }
 
   /**
-   * Getter for the Pool property.
-   * @returns {PoolModule} The Pool property value.
+   * Getter for the Position property.
+   * @returns {PositionModule} The Position property value.
    */
   get Position(): PositionModule {
     return this._position
   }
 
-  get Quoter(): QuoterModule {
-    return this._quoter
+  /**
+   * Getter for the Rewarder property.
+   * @returns {RewarderModule} The Rewarder property value.
+   */
+  get Rewarder(): RewarderModule {
+    return this._rewarder
   }
 
-  get Swap(): SwapModule {
-    return this._swap
+  /**
+   * Getter for the Router property.
+   * @returns {RouterModule} The Router property value.
+   */
+  get Router(): RouterModule {
+    return this._router
   }
 
   /**
@@ -299,10 +301,4 @@ export class FerraDammSDK {
     }
     return undefined
   }
-}
-
-function fetchRpc(...args: [any, any]) {
-  // console.log('call rpc', args[1]);
-
-  return fetch(...args)
 }

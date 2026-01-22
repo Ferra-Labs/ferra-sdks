@@ -1,169 +1,410 @@
-import { IModule } from '../interfaces/IModule'
-import { FerraDammSDK } from '../sdk'
-import { CachedContent } from '../utils/cached-content'
-import { LBPair } from '../interfaces/IPair'
-import { CalculateRatesResult, CalculateSwapParams, PrepareSwapParams } from '../interfaces/ISwap'
-import { checkValidSuiAddress, SwapUtils, TransactionUtil } from '../utils'
-import { DammPairsError, UtilsErrorCode } from '../errors/errors'
-import { coinWithBalance, Transaction, type TransactionResult } from '@mysten/sui/transactions'
-import { BinMath, CoinAssist } from '../math'
-
+import BN from 'bn.js'
 import Decimal from 'decimal.js'
-import { SUI_DECIMALS } from '@mysten/sui/utils'
-
-const MAX_LOOP_ITERATIONS = 70
+import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions'
+import {
+  CalculateRatesParams,
+  CalculateRatesResult,
+  Pool,
+  PreSwapParams,
+  PreSwapWithMultiPoolParams,
+  SwapParams,
+  TransPreSwapWithMultiPoolParams,
+} from '../types'
+import { Percentage, U64_MAX, ZERO } from '../math'
+import { findAdjustCoin, TransactionUtil } from '../utils/transaction-util'
+import { extractStructTagFromType } from '../utils/contracts'
+import { DammFetcherModule } from '../types/sui'
+import { TickData, transDammpoolDataWithoutTicks } from '../types/damm-pool'
+import { FerraDammSDK } from '../sdk'
+import { IModule } from '../interfaces/IModule'
+import { SwapUtils } from '../math/swap'
+import { computeSwap } from '../math/damm'
+import { TickMath } from '../math/tick'
+import { checkValidSuiAddress, d } from '../utils'
+import { SplitPath } from './router'
+import { DammpoolsError, ConfigErrorCode, SwapErrorCode, UtilsErrorCode } from '../errors/errors'
 
 /**
- * Module for managing DAMM swap
- * Handles
+ * Swap module for executing token swaps in DAMM pools
+ * Handles swap calculations, fee estimation, price impact analysis, and transaction creation
+ * Supports both single-pool and multi-pool swap operations with gas optimization
  */
 export class SwapModule implements IModule {
   protected _sdk: FerraDammSDK
 
-  /**
-   * Cache storage for pair data
-   */
-  private readonly _cache: Record<string, CachedContent> = {}
-
-  /**
-   * Initialize the pair module with SDK instance
-   * @param sdk - FerraDammSDK instance
-   */
   constructor(sdk: FerraDammSDK) {
     this._sdk = sdk
   }
 
-  /**
-   * Get the SDK instance
-   * @returns FerraDammSDK instance
-   */
   get sdk() {
     return this._sdk
   }
 
   /**
-   * Calculate swap rates and price impact for a given swap operation
-   * @param pair - The LBPair to calculate swap rates for
-   * @param params - Swap calculation parameters including amount, direction, and available bins
-   * @returns Calculation result including estimated amounts, fees, and price impact
-   *
-   * @example
-   * ```typescript
-   * const rates = swapModule.calculateRates(pair, {
-   *   amount: 1000000000n,
-   *   xtoy: true,
-   *   swapBins: binData
-   * });
-   * console.log(`Price impact: ${rates.priceImpactPct}%`);
-   * console.log(`Estimated output: ${rates.estimatedAmountOut}`);
-   * ```
+   * Performs pre-swap simulation across multiple pools to find optimal execution
+   * @param swapParams - Parameters for multi-pool swap simulation
+   * @returns Promise resolving to optimal swap data or null if no valid swap found
    */
-  public calculateRates(pair: LBPair, params: CalculateSwapParams): CalculateRatesResult {
-    const [amountInRemain, amountOut, feeAmount, newBinId, isMaxLoop] = SwapUtils.getSwapOut(
-      pair,
-      params.swapBins,
-      params.amount,
-      params.xtoy ?? true
-    )
-    const amountInCost = params.amount - amountInRemain
-    const currentBinId = pair.parameters.active_id
+  async preSwapWithMultiPool(swapParams: PreSwapWithMultiPoolParams) {
+    const { integrate, simulationAccount } = this.sdk.sdkOptions
+    const transaction = new Transaction()
 
-    let currentPrice = BinMath.getPriceFromId(currentBinId, Number(pair.binStep), params.decimalsA, params.decimalsB)
-    let decimalAdjustment = Math.pow(10, params.decimalsA - params.decimalsB)
-
-    if (params.xtoy === false) {
-      currentPrice = currentPrice !== 0 ? 1 / currentPrice : 0
-      decimalAdjustment = Math.pow(10, params.decimalsB - params.decimalsA)
+    const coinTypes = [swapParams.coinTypeA, swapParams.coinTypeB]
+    for (let poolIndex = 0; poolIndex < swapParams.poolAddresses.length; poolIndex += 1) {
+      const transactionArgs = [
+        transaction.object(swapParams.poolAddresses[poolIndex]),
+        transaction.pure.bool(swapParams.a2b),
+        transaction.pure.bool(swapParams.byAmountIn),
+        transaction.pure.u64(swapParams.amount),
+      ]
+      transaction.moveCall({
+        target: `${integrate.published_at}::${DammFetcherModule}::calculate_swap_result`,
+        arguments: transactionArgs,
+        typeArguments: coinTypes,
+      })
     }
 
-    const executionPrice = Decimal(amountOut.toString()).div(amountInCost.toString()).mul(decimalAdjustment)
-    
-    const priceImpactPercentage = executionPrice.sub(currentPrice).div(currentPrice).mul(100).toNumber()
+    if (!checkValidSuiAddress(simulationAccount.address)) {
+      throw new DammpoolsError('Invalid simulation account configuration', ConfigErrorCode.InvalidSimulateAccount)
+    }
+
+    const simulationResult = await this.sdk.fullClient.devInspectTransactionBlock({
+      transactionBlock: transaction,
+      sender: simulationAccount.address,
+    })
+
+    if (simulationResult.error != null) {
+      throw new DammpoolsError(
+        `Multi-pool pre-swap failed: ${simulationResult.error ?? 'unknown error'}, please check configuration and parameters`,
+        ConfigErrorCode.InvalidConfig
+      )
+    }
+
+    const swapEventData: any = simulationResult.events?.filter((event: any) => {
+      return extractStructTagFromType(event.type).name === `CalculatedSwapResultEvent`
+    })
+
+    if (swapEventData.length === 0) {
+      return null
+    }
+
+    if (swapEventData.length !== swapParams.poolAddresses.length) {
+      throw new DammpoolsError('Event data length does not match pool count', SwapErrorCode.ParamsLengthNotEqual)
+    }
+
+    let optimalAmount = swapParams.byAmountIn ? ZERO : U64_MAX
+    let optimalPoolIndex = -1
+
+    for (let eventIndex = 0; eventIndex < swapEventData.length; eventIndex += 1) {
+      if (swapEventData[eventIndex].parsedJson.data.is_exceed) {
+        continue
+      }
+      const outputAmount = swapParams.byAmountIn
+        ? new BN(swapEventData[eventIndex].parsedJson.data.amount_out)
+        : new BN(swapEventData[eventIndex].parsedJson.data.amount_in)
+
+      if (optimalPoolIndex === -1) {
+        optimalPoolIndex = eventIndex
+        optimalAmount = outputAmount
+      } else if (swapParams.byAmountIn && outputAmount.gt(optimalAmount)) {
+        optimalPoolIndex = eventIndex
+        optimalAmount = outputAmount
+      } else if (!swapParams.byAmountIn && outputAmount.lt(optimalAmount)) {
+        optimalPoolIndex = eventIndex
+        optimalAmount = outputAmount
+      }
+    }
+
+    if (optimalPoolIndex === -1) {
+      throw new Error('No valid pool for swap')
+    }
+
+    return this.transformSwapWithMultiPoolData(
+      {
+        poolAddress: swapParams.poolAddresses[optimalPoolIndex],
+        a2b: swapParams.a2b,
+        byAmountIn: swapParams.byAmountIn,
+        amount: swapParams.amount,
+        coinTypeA: swapParams.coinTypeA,
+        coinTypeB: swapParams.coinTypeB,
+      },
+      swapEventData[optimalPoolIndex].parsedJson
+    )
+  }
+
+  /**
+   * Performs pre-swap simulation for a single pool
+   * @param swapParams - Parameters for single pool swap simulation
+   * @returns Promise resolving to swap simulation data or null if simulation fails
+   */
+  async preswap(swapParams: PreSwapParams) {
+    const { integrate, simulationAccount } = this.sdk.sdkOptions
+
+    const transaction = new Transaction()
+
+    const coinTypes = [swapParams.coinTypeA, swapParams.coinTypeB]
+    const transactionArgs = [
+      transaction.object(swapParams.pool.poolAddress),
+      transaction.pure.bool(swapParams.a2b),
+      transaction.pure.bool(swapParams.byAmountIn),
+      transaction.pure.u64(swapParams.amount),
+    ]
+
+    transaction.moveCall({
+      target: `${integrate.published_at}::${DammFetcherModule}::calculate_swap_result`,
+      arguments: transactionArgs,
+      typeArguments: coinTypes,
+    })
+
+    if (!checkValidSuiAddress(simulationAccount.address)) {
+      throw new DammpoolsError('Invalid simulation account configuration', ConfigErrorCode.InvalidSimulateAccount)
+    }
+
+    const simulationResult = await this.sdk.fullClient.devInspectTransactionBlock({
+      transactionBlock: transaction,
+      sender: simulationAccount.address,
+    })
+
+    if (simulationResult.error != null) {
+      throw new DammpoolsError(
+        `Pre-swap simulation failed: ${simulationResult.error ?? 'unknown error'}, please check configuration and parameters`,
+        ConfigErrorCode.InvalidConfig
+      )
+    }
+
+    const swapEventData: any = simulationResult.events?.filter((event: any) => {
+      return extractStructTagFromType(event.type).name === `CalculatedSwapResultEvent`
+    })
+
+    if (swapEventData.length === 0) {
+      return null
+    }
+
+    return this.transformSwapData(swapParams, swapEventData[0].parsedJson.data)
+  }
+
+  /**
+   * Transforms raw swap simulation data into structured swap result
+   * @param swapParams - Original swap parameters
+   * @param simulationData - Raw simulation result data
+   * @returns Structured swap data object
+   */
+  private transformSwapData(swapParams: PreSwapParams, simulationData: any) {
+    const calculatedAmountIn =
+      simulationData.amount_in && simulationData.fee_amount
+        ? new BN(simulationData.amount_in).add(new BN(simulationData.fee_amount)).toString()
+        : ''
 
     return {
-      amount: params.amount,
-      estimatedAmountIn: amountInCost,
-      estimatedAmountOut: amountOut,
-      estimatedEndBinId: Number(newBinId),
-      estimatedFeeAmount: feeAmount,
-      extraComputeLimit: 0,
-      isExceed: amountInRemain > 0 || isMaxLoop,
-      isMaxLoop,
-      priceImpactPct: isNaN(priceImpactPercentage) ? 0 : priceImpactPercentage,
-      xToY: params.xtoy ?? true,
+      poolAddress: swapParams.pool.poolAddress,
+      currentSqrtPrice: swapParams.currentSqrtPrice,
+      estimatedAmountIn: calculatedAmountIn,
+      estimatedAmountOut: simulationData.amount_out,
+      estimatedEndSqrtPrice: simulationData.after_sqrt_price,
+      estimatedFeeAmount: simulationData.fee_amount,
+      isExceed: simulationData.is_exceed,
+      amount: swapParams.amount,
+      aToB: swapParams.a2b,
+      byAmountIn: swapParams.byAmountIn,
     }
   }
 
   /**
-   * Prepare a swap transaction for a pair
-   * @param pair - The LBPair to swap on
-   * @param params - Swap parameters including amount, direction, recipient
-   * @param tx - Optional existing transaction to add swap to
-   * @returns Transaction object ready to be executed
-   * @throws DammPairsError if sender address is invalid
+   * Transforms multi-pool swap simulation data into structured result
+   * @param swapParams - Original multi-pool swap parameters
+   * @param responseData - Raw JSON response from simulation
+   * @returns Structured multi-pool swap data object
    */
-  public async prepareSwap(pair: LBPair, params: PrepareSwapParams, tx?: Transaction): Promise<Transaction> {
-    const sender = this.sdk.senderAddress
-    const recipient = params.recipient ?? sender
-    const xtoy = params.xtoy ?? true
+  private transformSwapWithMultiPoolData(swapParams: TransPreSwapWithMultiPoolParams, responseData: any) {
+    const { data } = responseData
 
-    // Validate sender address
+    console.log('Multi-pool swap simulation data: ', data)
+
+    const calculatedAmountIn = data.amount_in && data.fee_amount ? new BN(data.amount_in).add(new BN(data.fee_amount)).toString() : ''
+
+    return {
+      poolAddress: swapParams.poolAddress,
+      estimatedAmountIn: calculatedAmountIn,
+      estimatedAmountOut: data.amount_out,
+      estimatedEndSqrtPrice: data.after_sqrt_price,
+      estimatedStartSqrtPrice: data.step_results[0].current_sqrt_price,
+      estimatedFeeAmount: data.fee_amount,
+      isExceed: data.is_exceed,
+      amount: swapParams.amount,
+      aToB: swapParams.a2b,
+      byAmountIn: swapParams.byAmountIn,
+    }
+  }
+
+  /**
+   * Calculates swap rates and impact metrics using local computation
+   * @param calculationParams - Parameters for rate calculation including pool data and ticks
+   * @returns Detailed calculation results including amounts, fees, and price impact
+   */
+  calculateRates(calculationParams: CalculateRatesParams): CalculateRatesResult {
+    const { currentPool } = calculationParams
+    const poolData = transDammpoolDataWithoutTicks(currentPool)
+
+    let sortedTicks
+    if (calculationParams.a2b) {
+      sortedTicks = calculationParams.swapTicks.sort((tickA, tickB) => {
+        return tickB.index - tickA.index
+      })
+    } else {
+      sortedTicks = calculationParams.swapTicks.sort((tickA, tickB) => {
+        return tickA.index - tickB.index
+      })
+    }
+
+    const swapCalculationResult = computeSwap(
+      calculationParams.a2b,
+      calculationParams.byAmountIn,
+      calculationParams.amount,
+      poolData,
+      sortedTicks
+    )
+
+    let hasExceededLimits = false
+    if (calculationParams.byAmountIn) {
+      hasExceededLimits = swapCalculationResult.amountIn.lt(calculationParams.amount)
+    } else {
+      hasExceededLimits = swapCalculationResult.amountOut.lt(calculationParams.amount)
+    }
+
+    const priceLimit = SwapUtils.getDefaultSqrtPriceLimit(calculationParams.a2b)
+    if (calculationParams.a2b && swapCalculationResult.nextSqrtPrice.lt(priceLimit)) {
+      hasExceededLimits = true
+    }
+
+    if (!calculationParams.a2b && swapCalculationResult.nextSqrtPrice.gt(priceLimit)) {
+      hasExceededLimits = true
+    }
+
+    let additionalComputeLimit = 0
+    if (swapCalculationResult.crossTickNum > 6 && swapCalculationResult.crossTickNum < 40) {
+      additionalComputeLimit = 22000 * (swapCalculationResult.crossTickNum - 6)
+    }
+
+    if (swapCalculationResult.crossTickNum > 40) {
+      hasExceededLimits = true
+    }
+
+    let initialPrice = TickMath.sqrtPriceX64ToPrice(
+      poolData.currentSqrtPrice,
+      calculationParams.decimalsA,
+      calculationParams.decimalsB
+    ).toNumber()
+    let decimalAdjustment = Math.pow(10, calculationParams.decimalsA - calculationParams.decimalsB)
+
+    if (calculationParams.a2b === false) {
+      initialPrice = 1 / initialPrice
+      decimalAdjustment = Math.pow(10, calculationParams.decimalsB - calculationParams.decimalsA)
+    }
+
+    const executionPrice = new Decimal(swapCalculationResult.amountOut.toNumber())
+      .div(swapCalculationResult.amountIn.toNumber())
+      .mul(decimalAdjustment)
+      .toNumber()
+    
+    const priceImpactPercentage = ((executionPrice - initialPrice) / initialPrice) * 100
+
+    return {
+      estimatedAmountIn: swapCalculationResult.amountIn,
+      estimatedAmountOut: swapCalculationResult.amountOut,
+      estimatedEndSqrtPrice: swapCalculationResult.nextSqrtPrice,
+      estimatedFeeAmount: swapCalculationResult.feeAmount,
+      isExceed: hasExceededLimits,
+      extraComputeLimit: additionalComputeLimit,
+      amount: calculationParams.amount,
+      aToB: calculationParams.a2b,
+      byAmountIn: calculationParams.byAmountIn,
+      priceImpactPct: priceImpactPercentage,
+    }
+  }
+
+  /**
+   * Creates a complete swap transaction with automatic coin management
+   * @param swapParams - Parameters for swap execution
+   * @param gasEstimationConfig - Optional gas estimation configuration for SUI swaps
+   * @returns Promise resolving to executable transaction
+   */
+  async createSwapTransactionPayload(
+    swapParams: SwapParams,
+    gasEstimationConfig?: {
+      byAmountIn: boolean
+      slippage: Percentage
+      decimalsA: number
+      decimalsB: number
+      swapTicks: Array<TickData>
+      currentPool: Pool
+    }
+  ): Promise<Transaction> {
     if (!checkValidSuiAddress(this.sdk.senderAddress)) {
-      throw new DammPairsError(
-        'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
+      throw new DammpoolsError(
+        'Invalid sender address: Ferra DAMM SDK requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
         UtilsErrorCode.InvalidSendAddress
       )
     }
 
-    let coinX: (tx: Transaction) => TransactionResult
-    let coinY: (tx: Transaction) => TransactionResult
+    const userCoinAssets = await this._sdk.getOwnerCoinAssets(this.sdk.senderAddress)
 
-    // Create new transaction if not provided
-    tx ??= new Transaction()
-    tx.setSenderIfNotSet(sender)
+    if (gasEstimationConfig) {
+      const { isAdjustCoinA, isAdjustCoinB } = findAdjustCoin(swapParams)
 
-    // Build coin amounts based on swap direction
-    if (xtoy) {
-      // Swapping X to Y: set amount for X, 0 for Y
-      coinX = coinWithBalance({
-        type: pair.tokenXType,
-        balance: params.amount,
-      })
-      coinY = coinWithBalance({
-        type: pair.tokenYType,
-        balance: 0n,
-      })
-    } else {
-      // Swapping Y to X: set amount for Y, 0 for X
-      coinX = coinWithBalance({
-        type: pair.tokenXType,
-        balance: 0n,
-      })
-      coinY = coinWithBalance({
-        type: pair.tokenYType,
-        balance: params.amount,
-      })
+      if ((swapParams.a2b && isAdjustCoinA) || (!swapParams.a2b && isAdjustCoinB)) {
+        const gasOptimizedTransaction = await TransactionUtil.buildSwapTransactionForGas(
+          this._sdk,
+          swapParams,
+          userCoinAssets,
+          gasEstimationConfig
+        )
+        return gasOptimizedTransaction
+      }
     }
 
-    // Create the swap transaction
-    const [_, coinXReceipt, coinYReceipt] = TransactionUtil.createSwapTx(
-      {
-        pairId: pair.id,
-        coinTypeX: pair.tokenXType,
-        coinTypeY: pair.tokenYType,
-        coinX,
-        coinY,
-        recipient,
-        xtoy,
-        minAmountOut: params.minAmountOut,
-      },
-      this.sdk.sdkOptions,
-      tx
-    )
+    return TransactionUtil.buildSwapTransaction(this.sdk, swapParams, userCoinAssets)
+  }
 
-    // Transfer the received coins to recipient
-    tx.transferObjects([coinXReceipt, coinYReceipt], recipient)
+  /**
+   * Creates a swap transaction without automatic coin transfers (for advanced usage)
+   * @param swapParams - Parameters for swap execution
+   * @param gasEstimationConfig - Optional gas estimation configuration for SUI swaps
+   * @returns Promise resolving to transaction and coin arguments for manual handling
+   */
+  async createSwapTransactionWithoutTransferCoinsPayload(
+    swapParams: SwapParams,
+    gasEstimationConfig?: {
+      byAmountIn: boolean
+      slippage: Percentage
+      decimalsA: number
+      decimalsB: number
+      swapTicks: Array<TickData>
+      currentPool: Pool
+    }
+  ): Promise<{ tx: Transaction; coinABs: TransactionObjectArgument[] }> {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
+      throw new DammpoolsError(
+        'Invalid sender address: Ferra DAMM SDK requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
+        UtilsErrorCode.InvalidSendAddress
+      )
+    }
 
-    return tx
+    const userCoinAssets = await this._sdk.getOwnerCoinAssets(this.sdk.senderAddress)
+
+    if (gasEstimationConfig) {
+      const { isAdjustCoinA, isAdjustCoinB } = findAdjustCoin(swapParams)
+
+      if ((swapParams.a2b && isAdjustCoinA) || (!swapParams.a2b && isAdjustCoinB)) {
+        const gasOptimizedResult = await TransactionUtil.buildSwapTransactionWithoutTransferCoinsForGas(
+          this._sdk,
+          swapParams,
+          userCoinAssets,
+          gasEstimationConfig
+        )
+        return gasOptimizedResult
+      }
+    }
+
+    return TransactionUtil.buildSwapTransactionWithoutTransferCoins(this.sdk, swapParams, userCoinAssets)
   }
 }

@@ -1,291 +1,471 @@
-import { isValidSuiAddress, normalizeStructTag, parseStructTag } from '@mysten/sui/utils'
-import { IModule } from '../interfaces/IModule'
+import BN from 'bn.js'
+import { Transaction, TransactionObjectArgument } from '@mysten/sui/transactions'
+import { isValidSuiObjectId, normalizeStructTag } from '@mysten/sui/utils'
+import {
+  AddLiquidityFixTokenParams,
+  AddLiquidityParams,
+  ClosePositionParams,
+  CollectFeeParams,
+  OpenPositionParams,
+  Pool,
+  Position,
+  PositionReward,
+  PositionTransactionInfo,
+  RemoveLiquidityParams,
+  getPackagerConfigs,
+} from '../types'
+import {
+  CachedContent,
+  asUintN,
+  buildPosition,
+  buildPositionReward,
+  buildPositionTransactionInfo,
+  cacheTime24h,
+  cacheTime5min,
+  checkValidSuiAddress,
+  extractStructTagFromType,
+  getFutureTime,
+} from '../utils'
+import { BuildCoinResult, findAdjustCoin, TransactionUtil } from '../utils/transaction-util'
+import {
+  DammFetcherModule,
+  DammIntegratePoolModule,
+  CLOCK_ADDRESS,
+  DataPage,
+  PaginationArgs,
+  SuiObjectIdType,
+  SuiResource,
+} from '../types/sui'
 import { FerraDammSDK } from '../sdk'
-import { CachedContent } from '../utils/cached-content'
-import { Amounts, BinData, CollectPositionRewardsEvent, LBPair, LbPairBinData, LBPosition } from '../interfaces/IPair'
-import type { SuiClient, SuiObjectResponse, SuiParsedData } from '@mysten/sui/client'
-import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
-import { DammPairsError, UtilsErrorCode } from '../errors/errors'
-import { LbPositionOnChain, PositionBinOnchain, PositionInfoOnChain, PositionReward } from '../interfaces/IPosition'
-
-import { getAmountOutOfBin } from '../utils/bin_helper'
-import { Transaction } from '@mysten/sui/transactions'
-import { inspect } from 'util'
-import { bcs, BcsType } from '@mysten/sui/bcs'
-import { CLOCK_ADDRESS } from '../types'
-
-export const LBPositionStruct = bcs.struct('LBPosition', {
-  id: bcs.struct('0x2::object::ID', { id: bcs.Address }),
-  pair_id: bcs.Address,
-  my_id: bcs.Address,
-  saved_fees_x: bcs.u128(),
-  saved_fees_y: bcs.u128(),
-  saved_rewards: bcs.vector(bcs.u128()),
-  coin_type_a: bcs.struct('TypeName', {
-    fields: bcs.struct('TypeNameFields', { name: bcs.String }),
-  }),
-  coin_type_b: bcs.struct('TypeName', {
-    fields: bcs.struct('TypeNameFields', { name: bcs.String }),
-  }),
-  lock_until: bcs.u64(),
-  total_bins: bcs.u64(),
-})
-
-const DynamicFieldNode = <K extends BcsType<any>, V extends BcsType<any>>(key: K, value: V) => {
-  return bcs.struct('DynamicFieldNode', {
-    id: bcs.struct('UID', {
-      id: bcs.Address,
-    }),
-    name: key,
-    value,
-  })
-}
-
-export const PackedBinsStruct = DynamicFieldNode(
-  bcs.u32(),bcs.struct('PackedBins', {
-  active_bins_bitmap: bcs.u8(),
-  bin_data: bcs.vector(
-    bcs.struct('LBBinPosition', {
-      bin_id: bcs.u32(),
-      amount: bcs.u128(),
-      fee_growth_inside_last_x: bcs.u128(),
-      fee_growth_inside_last_y: bcs.u128(),
-      reward_growth_inside_last: bcs.vector(bcs.u128()),
-    })
-  ),
-}))
+import { IModule } from '../interfaces/IModule'
+import { getObjectFields } from '../utils/objects'
+import { CollectFeesQuote } from '../math'
+import { FetchPosFeeParams } from './rewarder'
+import { DammpoolsError, ConfigErrorCode, PoolErrorCode, UtilsErrorCode } from '../errors/errors'
+import { RpcModule } from './rpc'
+import { bcs } from '@mysten/bcs'
 
 /**
- * Module for managing DAMM positions
- * Handles fetching and parsing of liquidity positions and their associated bins
+ * Position module for managing liquidity positions in DAMM pools
+ * Provides functionality for creating, updating, and managing positions
  */
 export class PositionModule implements IModule {
   protected _sdk: FerraDammSDK
-
-  /**
-   * Cache storage for position data
-   */
   private readonly _cache: Record<string, CachedContent> = {}
 
-  /**
-   * Initialize the position module with SDK instance
-   * @param sdk - FerraDammSDK instance
-   */
   constructor(sdk: FerraDammSDK) {
     this._sdk = sdk
   }
 
-  /**
-   * Get the SDK instance
-   * @returns FerraDammSDK instance
-   */
   get sdk() {
     return this._sdk
   }
 
   /**
-   * Fetch a single liquidity position by ID
-   * @param positionId - The object ID of the position to fetch
-   * @returns Promise resolving to LBPosition data
-   * @throws Error if position ID is invalid or position not found
+   * Constructs the full type address for Position objects
+   * @returns Full type string in format: packageId::module::type
    */
-  public async getLbPosition(positionId: string): Promise<LBPosition> {
-    // Validate position ID format
-    if (!isValidSuiAddress(positionId)) {
-      throw new Error('Position not found')
+  buildPositionType() {
+    const ferraDamm = this._sdk.sdkOptions.damm_pool.package_id
+    return `${ferraDamm}::position::Position`
+  }
+
+  /**
+   * Retrieves transaction history for a specific position
+   * Supports custom RPC endpoints and filtering by multiple position IDs
+   * @param posId - Primary position ID to query
+   * @param originPosId - Optional original position ID for filtering
+   * @param fullRpcUrl - Optional custom RPC endpoint
+   * @param paginationArgs - Pagination parameters (default: 'all')
+   * @param order - Sort order for transactions (default: 'ascending')
+   * @returns Paginated list of position transactions
+   */
+  async getPositionTransactionList({
+    posId,
+    paginationArgs = 'all',
+    order = 'ascending',
+    fullRpcUrl,
+    originPosId,
+  }: {
+    posId: string
+    originPosId?: string
+    fullRpcUrl?: string
+    paginationArgs?: PaginationArgs
+    order?: 'ascending' | 'descending' | null | undefined
+  }): Promise<DataPage<PositionTransactionInfo>> {
+    const { fullClient } = this._sdk
+    const filterIds: string[] = [posId]
+    if (originPosId) {
+      filterIds.push(originPosId)
     }
 
-    const lpPositionWapper = (
-      await this.sdk.grpcClient.ledgerService.getObject({
-        objectId: positionId,
-        readMask: {
-          paths: ['object_type', 'contents'],
-        },
+    // Use custom RPC client if provided
+    let client
+    if (fullRpcUrl) {
+      client = new RpcModule({
+        url: fullRpcUrl,
       })
-    ).response
-
-    // Validate response has required data
-    if (!lpPositionWapper.object?.contents) {
-      throw new Error('Position not found')
+    } else {
+      client = fullClient
     }
 
-    // Parse position content from on-chain data
-    const data = this.parsePositionContent(
-      lpPositionWapper.object.objectType!,
-      LBPositionStruct.parse(lpPositionWapper.object.contents.value ?? new Uint8Array()),
-      (lpPositionWapper.object.version ?? '0').toString()
-    )
+    const data: DataPage<PositionTransactionInfo> = {
+      data: [],
+      hasNextPage: false,
+    }
 
-    if (!data) {
-      throw new Error('Invalid position content')
+    try {
+      const res = await client.queryTransactionBlocksByPage({ ChangedObject: posId }, paginationArgs, order)
+
+      res.data.forEach((item, index) => {
+        const dataList = buildPositionTransactionInfo(item, index, filterIds)
+        data.data = [...data.data, ...dataList]
+      })
+      data.hasNextPage = res.hasNextPage
+      data.nextCursor = res.nextCursor
+      return data
+    } catch (error) {
+      console.log('Error in getPositionTransactionList:', error)
     }
 
     return data
   }
 
   /**
-   * Fetch all liquidity positions owned by the current sender
-   * @returns Promise resolving to array of LBPosition data
-   * @throws DammPairsError if sender address is invalid
+   * Retrieves all positions owned by an account
+   * Optionally filters by pool IDs
+   * @param accountAddress - Owner's address
+   * @param assignPoolIds - Optional array of pool IDs to filter positions
+   * @param showDisplay - Include display metadata (default: true)
+   * @returns Array of Position objects owned by the account
    */
-  public async getLbPositions(pairIds: string[], owner = this.sdk.senderAddress): Promise<LBPosition[]> {
-    const suiClient = this.sdk.grpcClient
-    const {
-      damm_pool: { package_id },
-    } = this.sdk.sdkOptions
+  async getPositionList(accountAddress: string, assignPoolIds: string[] = [], showDisplay = true): Promise<Position[]> {
+    const allPosition: Position[] = []
 
-    // Validate sender address
-    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
-      throw new DammPairsError(
-        'Invalid sender address: ferra clmm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
-        UtilsErrorCode.InvalidSendAddress
+    const ownerRes: any = await this._sdk.fullClient.getOwnedObjectsByPage(accountAddress, {
+      options: { showType: true, showContent: true, showDisplay, showOwner: true },
+      filter: { Package: this._sdk.sdkOptions.damm_pool.package_id },
+    })
+
+    const hasAssignPoolIds = assignPoolIds.length > 0
+    for (const item of ownerRes.data as any[]) {
+      const type = extractStructTagFromType(item.data.type)
+
+      if (type.full_address === this.buildPositionType()) {
+        const position = buildPosition(item)
+        const cacheKey = `${position.pos_object_id}_getPositionList`
+        this.updateCache(cacheKey, position, cacheTime24h)
+
+        // Filter by pool IDs if specified
+        if (hasAssignPoolIds) {
+          if (assignPoolIds.includes(position.pool)) {
+            allPosition.push(position)
+          }
+        } else {
+          allPosition.push(position)
+        }
+      }
+    }
+
+    return allPosition
+  }
+
+  /**
+   * Retrieves position data using position handle (requires pool info)
+   * Note: getPositionById is recommended for direct position retrieval
+   * @param positionHandle - Position collection handle from pool
+   * @param positionID - Position object ID
+   * @param calculateRewarder - Calculate reward amounts (default: true)
+   * @param showDisplay - Include display metadata (default: true)
+   * @returns Complete position object with optional rewards
+   */
+  async getPosition(positionHandle: string, positionID: string, calculateRewarder = true, showDisplay = true): Promise<Position> {
+    let position = await this.getSimplePosition(positionID, showDisplay)
+    if (calculateRewarder) {
+      position = await this.updatePositionRewarders(positionHandle, position)
+    }
+    return position
+  }
+
+  /**
+   * Retrieves position data directly by ID (recommended method)
+   * Automatically fetches pool data to calculate rewards if needed
+   * @param positionID - Position object ID
+   * @param calculateRewarder - Calculate reward amounts (default: true)
+   * @param showDisplay - Include display metadata (default: true)
+   * @returns Complete position object with optional rewards
+   */
+  async getPositionById(positionID: string, calculateRewarder = true, showDisplay = true): Promise<Position> {
+    const position = await this.getSimplePosition(positionID, showDisplay)
+    if (calculateRewarder) {
+      const pool = await this._sdk.Pool.getPool(position.pool, false)
+      const result = await this.updatePositionRewarders(pool.positionManager.positionsHandle, position)
+      return result
+    }
+    return position
+  }
+
+  /**
+   * Retrieves basic position data without reward calculations
+   * Uses cache to minimize RPC calls
+   * @param positionID - Position object ID
+   * @param showDisplay - Include display metadata (default: true)
+   * @returns Basic position object without rewards
+   */
+  async getSimplePosition(positionID: string, showDisplay = true): Promise<Position> {
+    const cacheKey = `${positionID}_getPositionList`
+
+    let position = this.getSimplePositionByCache(positionID)
+
+    if (position === undefined) {
+      const objectDataResponses = await this.sdk.fullClient.getObject({
+        id: positionID,
+        options: { showContent: true, showType: true, showDisplay, showOwner: true },
+      })
+      position = buildPosition(objectDataResponses)
+
+      this.updateCache(cacheKey, position, cacheTime24h)
+    }
+    return position
+  }
+
+  /**
+   * Internal method to retrieve cached position data
+   * @param positionID - Position object ID
+   * @returns Cached position or undefined if not found/expired
+   */
+  private getSimplePositionByCache(positionID: string): Position | undefined {
+    const cacheKey = `${positionID}_getPositionList`
+    return this.getCache<Position>(cacheKey)
+  }
+
+  /**
+   * Batch retrieves multiple positions efficiently
+   * Uses cache and batch RPC calls to optimize performance
+   * @param positionIDs - Array of position object IDs
+   * @param showDisplay - Include display metadata (default: true)
+   * @returns Array of position objects
+   */
+  async getSipmlePositionList(positionIDs: SuiObjectIdType[], showDisplay = true): Promise<Position[]> {
+    const positionList: Position[] = []
+    const notFoundIds: SuiObjectIdType[] = []
+
+    // Check cache first
+    positionIDs.forEach((id) => {
+      const position = this.getSimplePositionByCache(id)
+      if (position) {
+        positionList.push(position)
+      } else {
+        notFoundIds.push(id)
+      }
+    })
+
+    // Batch fetch positions not in cache
+    if (notFoundIds.length > 0) {
+      const objectDataResponses = await this._sdk.fullClient.batchGetObjects(notFoundIds, {
+        showOwner: true,
+        showContent: true,
+        showDisplay,
+        showType: true,
+      })
+
+      objectDataResponses.forEach((info) => {
+        if (info.error == null) {
+          const position = buildPosition(info)
+          positionList.push(position)
+          const cacheKey = `${position.pos_object_id}_getPositionList`
+          this.updateCache(cacheKey, position, cacheTime24h)
+        }
+      })
+    }
+
+    return positionList
+  }
+
+  /**
+   * Internal method to update position with reward information
+   * @param positionHandle - Position collection handle
+   * @param position - Position object to update
+   * @returns Position object with reward data
+   */
+  private async updatePositionRewarders(positionHandle: string, position: Position): Promise<Position> {
+    const positionReward = await this.getPositionRewarders(positionHandle, position.pos_object_id)
+    return {
+      ...position,
+      ...positionReward,
+    }
+  }
+
+  /**
+   * Retrieves reward information for a specific position
+   * @param positionHandle - Position collection handle
+   * @param positionID - Position object ID
+   * @returns Position reward data or undefined if not found
+   */
+  async getPositionRewarders(positionHandle: string, positionID: string): Promise<PositionReward | undefined> {
+    try {
+      const dynamicFieldObject = await this._sdk.fullClient.getDynamicFieldObject({
+        parentId: positionHandle,
+        name: {
+          type: '0x2::object::ID',
+          value: positionID,
+        },
+      })
+
+      const objectFields = getObjectFields(dynamicFieldObject.data as any) as any
+      const fields = objectFields.value.fields.value
+      const positionReward = buildPositionReward(fields)
+      return positionReward
+    } catch (error) {
+      console.log(error)
+      return undefined
+    }
+  }
+
+  /**
+   * Simulates fee collection for multiple positions
+   * Uses devInspectTransactionBlock for gas-free simulation
+   * @param params - Array of position parameters for fee calculation
+   * @returns Array of fee quotes for each position
+   */
+  public async fetchPosFeeAmount(params: FetchPosFeeParams[]): Promise<CollectFeesQuote[]> {
+    const { damm_pool, integrate, simulationAccount } = this.sdk.sdkOptions
+    const tx = new Transaction()
+
+    // Build simulation transaction for all positions
+    for (const paramItem of params) {
+      const typeArguments = [paramItem.coinTypeA, paramItem.coinTypeB]
+      const args = [
+        tx.object(getPackagerConfigs(damm_pool).global_config_id),
+        tx.object(paramItem.poolAddress),
+        tx.pure.address(paramItem.positionId),
+      ]
+      tx.moveCall({
+        target: `${integrate.published_at}::${DammFetcherModule}::fetch_position_fees`,
+        arguments: args,
+        typeArguments,
+      })
+    }
+
+    if (!checkValidSuiAddress(simulationAccount.address)) {
+      throw new DammpoolsError('this config simulationAccount is not set right', ConfigErrorCode.InvalidSimulateAccount)
+    }
+
+    const simulateRes = await this.sdk.fullClient.devInspectTransactionBlock({
+      transactionBlock: tx,
+      sender: simulationAccount.address,
+    })
+
+    if (simulateRes.error != null) {
+      throw new DammpoolsError(
+        `fetch position fee error code: ${simulateRes.error ?? 'unknown error'}, please check config and postion and pool object ids`,
+        PoolErrorCode.InvalidPoolObject
       )
     }
 
-    const positions: LBPosition[] = []
-
-    let pageToken: Uint8Array | undefined = undefined
-
-    while (true) {
-      const objects = await suiClient.stateService.listOwnedObjects({
-        owner,
-        objectType: `${package_id}::lb_position::LBPosition`,
-        pageToken,
-        pageSize: 500,
-        readMask: {
-          paths: ['object_type', 'contents'],
-        },
-      })
-
-      for (const object of objects.response.objects) {
-        const data = this.parsePositionContent(
-          object.objectType!,
-          LBPositionStruct.parse(object.contents?.value ?? new Uint8Array()),
-          (object.version ?? '0').toString()
-        )
-
-        if (!data) {
-          continue
-        }
-
-        positions.push(data)
-      }
-
-      if (!objects.response.objects.length || !objects.response.nextPageToken) {
-        break
-      } else {
-        pageToken = objects.response.nextPageToken
-      }
-    }
-
-    if (pairIds.length) {
-      return positions.filter((v) => pairIds.includes(v.pair_id))
-    }
-
-    return positions
-  }
-
-  /**
-   * Get all bins associated with a position in a specific pair
-   * @param pair - The LBPair object containing position manager
-   * @param positionId - The ID of the position to fetch bins for
-   * @returns Promise resolving to array of BinData
-   * @throws Error if position manager not found or position doesn't match pair
-   */
-  public async getPositionBins(pair: LBPair, positionId: string): Promise<BinData[]> {
-    if (this._cache[positionId]) {
-      return this._cache[positionId].value
-    }
-    const positionManager = pair.positionManager
-
-    // Check if position manager exists
-    if (!positionManager) {
-      return []
-    }
-
-    // Get bin manager for this position
-    const binManager = await this.getBinManager(positionManager, positionId)
-
-    // Return empty if no bins
-    if (!binManager || binManager.size == '0') {
-      return []
-    }
-
-    const binManagerId = binManager.id.id
-    const data = await this.getBinsByManager(binManagerId)
-    // Fetch all bins from the bin manager
-    this._cache[positionId] = new CachedContent(data)
-    return data
-  }
-
-  // /**
-  //  * Get all bins associated with a position in a specific pair
-  //  * @param pair - The LBPair object containing position manager
-  //  * @param positionId - The ID of the position to fetch bins for
-  //  * @returns Promise resolving to array of BinData
-  //  * @throws Error if position manager not found or position doesn't match pair
-  //  */
-  // public async getPositionBinsWithRange(pair: LBPair, positionId: string, binRange: [from: number, to: number]): Promise<BinData[]> {
-  //   const positionManager = pair.positionManager
-
-  //   // Check if position manager exists
-  //   if (!positionManager) {
-  //     return []
-  //   }
-
-  //   // Fetch position to validate it belongs to this pair
-  //   const position = await this.getLbPosition(positionId)
-
-  //   if (position?.pair_id != pair.id) {
-  //     throw new Error('Position is not match with pair id')
-  //   }
-
-  //   // Get bin manager for this position
-  //   const binManager = await this.getBinManager(positionManager, positionId)
-
-  //   // Return empty if no bins
-  //   if (!binManager || binManager.size == '0') {
-  //     return []
-  //   }
-
-  //   const binManagerId = binManager.id.id
-
-  //   // Fetch all bins from the bin manager
-  //   return await this.getBinsByManager(binManagerId)
-  // }
-
-  /**
-   * Calculate the token amounts that can be withdrawn from each bin of a position
-   * @param pair - The LBPair containing the position
-   * @param positionId - ID of the position to calculate amounts for
-   * @returns Promise resolving to array of amounts with bin liquidity details
-   *
-   * @example
-   * ```typescript
-   * const amounts = await positionModule.getPositionBinsAmount(pair, "0x123...");
-   * amounts.forEach(bin => {
-   *   console.log(`Bin ${bin.id}: ${bin.amountX} tokenX, ${bin.amountY} tokenY`);
-   * });
-   * ```
-   */
-  public async getPositionBinsAmount(pair: LBPair, positionId: string): Promise<Amounts[]> {
-    const bins = await this.getPositionBins(pair, positionId)
-
-    const binReserves = await this.sdk.Pair.getPairReserves(pair)
-    const reserveMap = arrayToMap(binReserves)
-
-    return bins.map((b) => {
-      const binReserve = reserveMap[b.id]
-      const totalSupply = binReserve.total_supply
-
-      const amounts = getAmountOutOfBin(binReserve, b.liquidity, totalSupply)
-
-      return {
-        amountX: amounts.amount_x,
-        amountY: amounts.amount_y,
-        ...b,
-      } as Amounts
+    // Extract fee data from simulation events
+    const valueData: any = simulateRes.events?.filter((item: any) => {
+      return extractStructTagFromType(item.type).name === `FetchPositionFeesEvent`
     })
+    if (valueData.length === 0) {
+      return []
+    }
+
+    const result: CollectFeesQuote[] = []
+
+    for (let i = 0; i < valueData.length; i += 1) {
+      const { parsedJson } = valueData[i]
+      const posRrewarderResult: CollectFeesQuote = {
+        feeOwedA: new BN(parsedJson.fee_owned_a),
+        feeOwedB: new BN(parsedJson.fee_owned_b),
+        position_id: parsedJson.position_id,
+      }
+      result.push(posRrewarderResult)
+    }
+
+    return result
+  }
+
+  /**
+   * Batch fetches fee amounts for multiple positions
+   * Automatically retrieves position and pool data
+   * @param positionIDs - Array of position object IDs
+   * @returns Map of position ID to fee quote
+   */
+  async batchFetchPositionFees(positionIDs: string[]): Promise<Record<string, CollectFeesQuote>> {
+    const posFeeParamsList: FetchPosFeeParams[] = []
+
+    // Prepare parameters for each position
+    for (const id of positionIDs) {
+      const position = await this._sdk.Position.getPositionById(id, false)
+      const pool = await this._sdk.Pool.getPool(position.pool, false)
+      posFeeParamsList.push({
+        poolAddress: pool.poolAddress,
+        positionId: position.pos_object_id,
+        coinTypeA: pool.coinTypeA,
+        coinTypeB: pool.coinTypeB,
+      })
+    }
+
+    const positionMap: Record<string, CollectFeesQuote> = {}
+
+    if (posFeeParamsList.length > 0) {
+      const result: CollectFeesQuote[] = await this.fetchPosFeeAmount(posFeeParamsList)
+      for (const posRewarderInfo of result) {
+        positionMap[posRewarderInfo.position_id] = posRewarderInfo
+      }
+      return positionMap
+    }
+    return positionMap
+  }
+
+  /**
+   * Creates transaction to add liquidity with fixed token amount
+   * Supports gas estimation for SUI token transactions
+   * @param params - Fixed token liquidity parameters
+   * @param gasEstimateArg - Optional gas estimation parameters for SUI
+   * @param tx - Optional existing transaction to append to
+   * @param inputCoinA - Optional pre-built coin A object
+   * @param inputCoinB - Optional pre-built coin B object
+   * @returns Transaction object for adding liquidity
+   */
+  async createAddLiquidityFixTokenPayload(
+    params: AddLiquidityFixTokenParams,
+    gasEstimateArg?: {
+      slippage: number
+      curSqrtPrice: BN
+    },
+    tx?: Transaction,
+    inputCoinA?: TransactionObjectArgument,
+    inputCoinB?: TransactionObjectArgument
+  ): Promise<Transaction> {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
+      throw new DammpoolsError(
+        'Invalid sender address: ferra damm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
+        UtilsErrorCode.InvalidSendAddress
+      )
+    }
+    const allCoinAsset = await this._sdk.getOwnerCoinAssets(this.sdk.senderAddress)
+
+    // Handle gas estimation for SUI token
+    if (gasEstimateArg) {
+      const { isAdjustCoinA, isAdjustCoinB } = findAdjustCoin(params)
+      params = params as AddLiquidityFixTokenParams
+      if ((params.fix_amount_a && isAdjustCoinA) || (!params.fix_amount_a && isAdjustCoinB)) {
+        tx = await TransactionUtil.buildAddLiquidityFixTokenForGas(
+          this._sdk,
+          allCoinAsset,
+          params,
+          gasEstimateArg,
+          tx,
+          inputCoinA,
+          inputCoinB
+        )
+        return tx
+      }
+    }
+
+    return TransactionUtil.buildAddLiquidityFixToken(this._sdk, allCoinAsset, params, tx, inputCoinA, inputCoinB)
   }
 
   /**
@@ -324,13 +504,13 @@ export class PositionModule implements IModule {
   public async getRewarderBalances<T extends Array<string>>(coinTypes: T): Promise<SizedArray<bigint, T['length']>> {
     const config = this.sdk.sdkOptions
     const client = this.sdk.fullClient
-    const { reward_vault } = config.damm_pool.config ?? {}
-    if (!reward_vault) {
-      throw new Error('Pairs id not found from config')
+    const { global_rewarder_vault_id } = config.damm_pool.config ?? {}
+    if (!global_rewarder_vault_id) {
+      throw new Error('Rewarder vault id not found from config')
     }
 
     const vault = await client.getObject({
-      id: reward_vault,
+      id: global_rewarder_vault_id,
       options: {
         showContent: true,
         showType: true,
@@ -358,6 +538,7 @@ export class PositionModule implements IModule {
       for (const field of response.data) {
         if (field.name.type === '0x1::type_name::TypeName') {
           const fieldName = field.name.value as any
+
           const coinType = fieldName.name?.fields?.name || fieldName?.name
 
           dynamicFieldsMap.set(normalizeStructTag(coinType), field.objectId)
@@ -402,230 +583,239 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Calculate pending reward amounts for a position across all rewarders
-   * @param pair - The LBPair containing the position
-   * @param positionId - ID of the position to check rewards for
-   * @returns Promise resolving to array of pending rewards by coin type
-   *
-   * @example
-   * ```typescript
-   * const rewards = await positionModule.getPositionRewards(pair, "0x123...");
-   * rewards.forEach(reward => {
-   *   console.log(`Pending ${reward.amount} of ${reward.coinType}`);
-   * });
-   * ```
+   * Creates transaction to add liquidity to a position
+   * Automatically handles position creation if needed
+   * @param params - Liquidity addition parameters
+   * @param tx - Optional existing transaction to append to
+   * @param inputCoinA - Optional pre-built coin A object
+   * @param inputCoinB - Optional pre-built coin B object
+   * @returns Transaction object for adding liquidity
    */
-  public async getPositionRewards(pair: LBPair, positionId: string): Promise<PositionReward[]> {
-    const rewards: PositionReward[] = []
-    const sender = this.sdk.senderAddress
-    const tx = new Transaction()
-    tx.setSender(sender)
-
-    const bins = await this.getPositionBins(pair, positionId);
-
-    const coins: any[] = []
-
-    for (const reward of pair.rewarders) {
-      const [_, coin] = TransactionUtil.collectPositionRewards(
-        {
-          pairId: pair.id,
-          positionId,
-          rewardCoin: reward.reward_coin,
-          typeX: pair.tokenXType,
-          typeY: pair.tokenYType,
-          binIds: bins.map(b => b.id),
-        },
-        this.sdk.sdkOptions,
-        tx
+  async createAddLiquidityPayload(
+    params: AddLiquidityParams,
+    tx?: Transaction,
+    inputCoinA?: TransactionObjectArgument,
+    inputCoinB?: TransactionObjectArgument
+  ): Promise<Transaction> {
+    const { integrate, damm_pool } = this._sdk.sdkOptions
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
+      throw new DammpoolsError(
+        'Invalid sender address: ferra damm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
+        UtilsErrorCode.InvalidSendAddress
       )
-
-      coins.push(coin)
     }
 
-    if (coins.length) {
-      tx.transferObjects([...coins], sender)
+    // Convert tick indices to unsigned format
+    const tick_lower = asUintN(BigInt(params.tick_lower)).toString()
+    const tick_upper = asUintN(BigInt(params.tick_upper)).toString()
+
+    const typeArguments = [params.coinTypeA, params.coinTypeB]
+
+    tx = tx || new Transaction()
+
+    const needOpenPosition = !isValidSuiObjectId(params.pos_id)
+    const max_amount_a = BigInt(params.max_amount_a)
+    const max_amount_b = BigInt(params.max_amount_b)
+
+    // Build coin inputs if not provided
+    let primaryCoinAInputs: BuildCoinResult
+    let primaryCoinBInputs: BuildCoinResult
+    if (inputCoinA == null || inputCoinB == null) {
+      const allCoinAsset = await this.sdk.getOwnerCoinAssets(this.sdk.senderAddress)
+      primaryCoinAInputs = TransactionUtil.buildCoinForAmount(tx, allCoinAsset, max_amount_a, params.coinTypeA, false, true)
+      primaryCoinBInputs = TransactionUtil.buildCoinForAmount(tx, allCoinAsset, max_amount_b, params.coinTypeB, false, true)
+    } else {
+      primaryCoinAInputs = {
+        targetCoin: inputCoinA,
+        remainCoins: [],
+        isMintZeroCoin: false,
+        tragetCoinAmount: '0',
+      }
+      primaryCoinBInputs = {
+        targetCoin: inputCoinB,
+        remainCoins: [],
+        isMintZeroCoin: false,
+        tragetCoinAmount: '0',
+      }
     }
 
-    const res = await this.sdk.fullClient.dryRunTransactionBlock({
-      transactionBlock: await tx.build({ client: this.sdk.fullClient }),
-    })
-
-    const rewardEvents = res.events as CollectPositionRewardsEvent[]
-
-    for (const event of rewardEvents ?? []) {
-      rewards.push({
-        amount: event.parsedJson.amount,
-        coinType: normalizeStructTag(event.parsedJson.reward_type.name),
+    if (needOpenPosition) {
+      // Create new position with initial liquidity
+      tx.moveCall({
+        target: `${integrate.published_at}::${DammIntegratePoolModule}::open_position_with_liquidity`,
+        typeArguments,
+        arguments: [
+          tx.object(getPackagerConfigs(damm_pool).global_config_id),
+          tx.object(params.pool_id),
+          tx.pure.u32(Number(tick_lower)),
+          tx.pure.u32(Number(tick_upper)),
+          primaryCoinAInputs.targetCoin,
+          primaryCoinBInputs.targetCoin,
+          tx.pure.u64(params.max_amount_a),
+          tx.pure.u64(params.max_amount_b),
+          tx.pure.u128(params.delta_liquidity),
+          tx.object(CLOCK_ADDRESS),
+        ],
+      })
+    } else {
+      // Add liquidity to existing position
+      const allCoinAsset = await this.sdk.getOwnerCoinAssets(this.sdk.senderAddress)
+      tx = TransactionUtil.createCollectRewarderAndFeeParams(
+        this.sdk,
+        tx,
+        params,
+        allCoinAsset,
+        primaryCoinAInputs.remainCoins,
+        primaryCoinBInputs.remainCoins
+      )
+      tx.moveCall({
+        target: `${integrate.published_at}::${DammIntegratePoolModule}::add_liquidity`,
+        typeArguments,
+        arguments: [
+          tx.object(getPackagerConfigs(damm_pool).global_config_id),
+          tx.object(params.pool_id),
+          tx.object(params.pos_id),
+          primaryCoinAInputs.targetCoin,
+          primaryCoinBInputs.targetCoin,
+          tx.pure.u64(params.max_amount_a),
+          tx.pure.u64(params.max_amount_b),
+          tx.pure.u128(params.delta_liquidity),
+          tx.object(CLOCK_ADDRESS),
+        ],
       })
     }
-
-    return rewards
+    return tx
   }
 
   /**
-   * Claim all pending rewards for a position and transfer to sender
-   * @param pair - The LBPair containing the position
-   * @param positionId - ID of the position to claim rewards for
-   * @param tx - Optional existing transaction to add operations to
-   * @returns Transaction object with reward claiming operations
-   *
-   * @example
-   * ```typescript
-   * const tx = await positionModule.claimPositionRewards(pair, "0x123...");
-   * // All pending rewards will be transferred to sender
-   * ```
+   * Creates transaction to remove liquidity from a position
+   * Automatically collects fees and rewards before removal
+   * @param params - Liquidity removal parameters
+   * @param tx - Optional existing transaction to append to
+   * @returns Transaction object for removing liquidity
    */
-  public async claimPositionRewards(pair: LBPair, positionId: string, hasLiquidity = true, tx?: Transaction): Promise<Transaction> {
-    const sender = this.sdk.senderAddress
-    tx ??= new Transaction()
-    tx.setSender(sender)
-    const bins = hasLiquidity ? await this.getPositionBins(pair, positionId) : [];
-
-    for (const reward of pair.rewarders) {
-      const [_, coin] = TransactionUtil.collectPositionRewards(
-        {
-          pairId: pair.id,
-          positionId,
-          rewardCoin: reward.reward_coin,
-          typeX: pair.tokenXType,
-          typeY: pair.tokenYType,
-          binIds: bins.map(bin => bin.id),
-        },
-        this.sdk.sdkOptions,
-        tx
+  async removeLiquidityTransactionPayload(params: RemoveLiquidityParams, tx?: Transaction): Promise<Transaction> {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
+      throw new DammpoolsError(
+        'Invalid sender address: ferra damm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
+        UtilsErrorCode.InvalidSendAddress
       )
-
-      tx.transferObjects([coin], sender)
     }
+    const { damm_pool, integrate } = this.sdk.sdkOptions
+
+    const functionName = 'remove_liquidity'
+
+    tx = tx || new Transaction()
+
+    const typeArguments = [params.coinTypeA, params.coinTypeB]
+
+    const allCoinAsset = await this._sdk.getOwnerCoinAssets(this.sdk.senderAddress)
+
+    // Collect fees and rewards before removing liquidity
+    tx = TransactionUtil.createCollectRewarderAndFeeParams(this._sdk, tx, params, allCoinAsset)
+
+    const args = [
+      tx.object(getPackagerConfigs(damm_pool).global_config_id),
+      tx.object(params.pool_id),
+      tx.object(params.pos_id),
+      tx.pure.u128(params.delta_liquidity),
+      tx.pure.u64(params.min_amount_a),
+      tx.pure.u64(params.min_amount_b),
+      tx.object(CLOCK_ADDRESS),
+    ]
+
+    tx.moveCall({
+      target: `${integrate.published_at}::${DammIntegratePoolModule}::${functionName}`,
+      typeArguments,
+      arguments: args,
+    })
 
     return tx
   }
 
   /**
-   * Calculate pending fee amounts for specific bins of a position
-   * @param pair - The LBPair containing the position
-   * @param positionId - ID of the position to check fees for
-   * @param binIds - Array of bin IDs to calculate fees for
-   * @returns Promise resolving to tuple of [tokenX fees, tokenY fees] or null
-   *
-   * @example
-   * ```typescript
-   * const fees = await positionModule.getPositionFees(pair, "0x123...", [8388608, 8388609]);
-   * if (fees) {
-   *   console.log(`Fees: ${fees[0].amount} tokenX, ${fees[1].amount} tokenY`);
-   * }
-   * ```
+   * Creates transaction to close a position completely
+   * Removes all liquidity and collects all fees/rewards
+   * @param params - Position closure parameters
+   * @param tx - Optional existing transaction to append to
+   * @returns Transaction object for closing position
    */
-  public async getPositionFees(pair: LBPair, positionId: string): Promise<[PositionReward, PositionReward] | null> {
-    let rewards: [PositionReward, PositionReward] | null = null
+  async closePositionTransactionPayload(params: ClosePositionParams, tx?: Transaction): Promise<Transaction> {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
+      throw new DammpoolsError(
+        'Invalid sender address: ferra damm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
+        UtilsErrorCode.InvalidSendAddress
+      )
+    }
+    const { damm_pool, integrate } = this.sdk.sdkOptions
+
+    tx = tx || new Transaction()
+
+    const typeArguments = [params.coinTypeA, params.coinTypeB]
+
+    const allCoinAsset = await this.sdk.getOwnerCoinAssets(this.sdk.senderAddress)
+
+    // Collect all fees and rewards before closing
+    tx = TransactionUtil.createCollectRewarderAndFeeParams(this._sdk, tx, params, allCoinAsset)
+
+    tx.moveCall({
+      target: `${integrate.published_at}::${DammIntegratePoolModule}::close_position`,
+      typeArguments,
+      arguments: [
+        tx.object(getPackagerConfigs(damm_pool).global_config_id),
+        tx.object(params.pool_id),
+        tx.object(params.pos_id),
+        tx.pure.u64(params.min_amount_a),
+        tx.pure.u64(params.min_amount_b),
+        tx.object(CLOCK_ADDRESS),
+      ],
+    })
+
+    return tx
+  }
+
+  /**
+   * Creates transaction to open a new empty position
+   * Position will have no liquidity until added separately
+   * @param params - Position opening parameters
+   * @param tx - Optional existing transaction to append to
+   * @returns Transaction object for opening position
+   */
+  openPositionTransactionPayload(params: OpenPositionParams, tx?: Transaction): Transaction {
+    const { damm_pool, integrate } = this.sdk.sdkOptions
+    tx = tx || new Transaction()
+
+    const typeArguments = [params.coinTypeA, params.coinTypeB]
+    // Convert tick indices to unsigned format
+    const tick_lower = asUintN(BigInt(params.tick_lower)).toString()
+    const tick_upper = asUintN(BigInt(params.tick_upper)).toString()
+    const args = [
+      tx.object(getPackagerConfigs(damm_pool).global_config_id),
+      tx.object(params.pool_id),
+      tx.pure.u32(Number(tick_lower)),
+      tx.pure.u32(Number(tick_upper)),
+    ]
+
+    tx.moveCall({
+      target: `${integrate.published_at}::${DammIntegratePoolModule}::`,
+      typeArguments,
+      arguments: args,
+    })
+
+    return tx
+  }
+
+  public async lockPosition(pool: Pool, positionId: string, untilTimestamp: number) {
     const sender = this.sdk.senderAddress
+
     const tx = new Transaction()
-
-    const bins = await this.getPositionBins(pair, positionId)
-
-    TransactionUtil.getPositionFees(
-      {
-        pairId: pair.id,
-        positionId,
-        typeX: pair.tokenXType,
-        typeY: pair.tokenYType,
-        binIds: bins.map(v => v.id),
-      },
-      this.sdk.sdkOptions,
-      tx
-    )
-    const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
-
-    for (const index in res.results ?? []) {
-      const result = res.results![index]
-      const resXValue = new Uint8Array(result.returnValues?.[0]?.[0] ?? [])
-      const valueX = bcs.u64().parse(resXValue)
-
-      const resYValue = new Uint8Array(result.returnValues?.[1]?.[0] ?? [])
-      const valueY = bcs.u64().parse(resYValue)
-
-      rewards = [
-        {
-          amount: valueX,
-          coinType: pair.tokenXType,
-        },
-        {
-          amount: valueY,
-          coinType: pair.tokenYType,
-        },
-      ]
-    }
-
-    return rewards
-  }
-
-  /**
-   * Claim accumulated fees for specific bins of a position
-   * @param pair - The LBPair containing the position
-   * @param positionId - ID of the position to claim fees for
-   * @param binIds - Array of bin IDs to claim fees from
-   * @param tx - Optional existing transaction to add operations to
-   * @returns Transaction object with fee claiming operations
-   *
-   * @example
-   * ```typescript
-   * const binIds = [8388608, 8388609, 8388610];
-   * const tx = await positionModule.claimPositionFee(pair, "0x123...", binIds);
-   * // Fees from specified bins will be transferred to sender
-   * ```
-   */
-  public async claimPositionFee(pair: LBPair, positionId: string, hasLiquidity = true, tx?: Transaction): Promise<Transaction> {
-    const sender = this.sdk.senderAddress
-    const BATCH_SIZE = 1000
-    tx ??= new Transaction()
     tx.setSender(sender)
-    const bins = hasLiquidity ? await this.getPositionBins(pair, positionId) : [];
-
-    for (let index = 0; index < bins.length; index += BATCH_SIZE) {
-
-      const [_, coinX, coinY] = TransactionUtil.collectPositionFees(
-        {
-          pairId: pair.id,
-          positionId,
-          binIds: bins.map(bin => bin.id),
-          typeX: pair.tokenXType,
-          typeY: pair.tokenYType,
-        },
-        this.sdk.sdkOptions,
-        tx
-      )
-
-      tx.transferObjects([coinX, coinY], sender)
-    }
-
-    return tx
-  }
-
-  /**
-   * Lock a position until a specified timestamp to prevent modifications
-   * @param pair - The LBPair containing the position
-   * @param positionId - ID of the position to lock
-   * @param untilTimestamp - Timestamp (in milliseconds) until which position should be locked
-   * @param tx - Optional existing transaction to add operations to
-   * @returns Transaction object with position locking operation
-   *
-   * @example
-   * ```typescript
-   * const lockUntil = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 days
-   * const tx = await positionModule.lockPosition(pair, "0x123...", lockUntil);
-   * ```
-   */
-  public async lockPosition(pair: LBPair, positionId: string, untilTimestamp: number, tx?: Transaction): Promise<Transaction> {
-    const sender = this.sdk.senderAddress
-
-    tx ??= new Transaction()
-    tx.setSender(sender)
-    TransactionUtil.lockPosition(
+    TransactionUtil.buildLockPosition(
       {
-        pairId: pair.id,
+        poolId: pool.poolAddress,
         positionId,
-        typeX: pair.tokenXType,
-        typeY: pair.tokenYType,
+        typeA: pool.coinTypeA,
+        typeB: pool.coinTypeB,
         untilTimestamp,
       },
       this.sdk.sdkOptions,
@@ -635,213 +825,187 @@ export class PositionModule implements IModule {
     return tx
   }
 
-  /**
-   * Get the lock status and timing information for a position
-   * @param positionId - ID of the position to check lock status for
-   * @returns Promise resolving to tuple of [lockUntilTimestamp, currentTimestamp, isCurrentlyLocked]
-   *
-   * @example
-   * ```typescript
-   * const [lockUntil, currentTime, isLocked] = await positionModule.getLockPositionStatus("0x123...");
-   * if (isLocked) {
-   *   const unlockDate = new Date(lockUntil);
-   *   console.log(`Position locked until ${unlockDate}`);
-   * }
-   * ```
-   */
-  public async getLockPositionStatus(positionId: string): Promise<[current_lock: number, current_timestamp: number, is_locked: boolean]> {
-    const sender = this.sdk.senderAddress
-    const packageId = this.sdk.sdkOptions.damm_pool.package_id
-
-    const tx = new Transaction()
-    tx.setSender(sender)
-    tx.moveCall({
-      target: `${packageId}::lb_position::get_lock_until`,
-      arguments: [tx.object(positionId)],
-    })
-    tx.moveCall({
-      target: '0x2::clock::timestamp_ms',
-      arguments: [tx.object(CLOCK_ADDRESS)],
-    })
-
-    const res = await this.sdk.fullClient.devInspectTransactionBlock({ transactionBlock: tx, sender })
-    const currentLockBytes = new Uint8Array(res.results![0].returnValues?.[0]?.[0] ?? [])
-    const currentLock = Number(bcs.u64().parse(currentLockBytes))
-
-    const currentTimestampBytes = new Uint8Array(res.results![1].returnValues?.[0]?.[0] ?? [])
-    const currentTimestamp = Number(bcs.u64().parse(currentTimestampBytes))
+  public async getLockPositionStatusById(positionId: string): Promise<[current_lock: number, current_timestamp: number, is_locked: boolean]> {
+    const position = await this.getPositionById(positionId)
+    const currentLock = Number(position.lock_until);
+    const currentTimestamp = Date.now();
 
     return [currentLock, currentTimestamp, currentLock > currentTimestamp]
   }
 
-  // private methods
+  public async getLockPositionStatus(position: Position): Promise<[current_lock: number, current_timestamp: number, is_locked: boolean]> {
+    const currentLock = Number(position.lock_until);
+    const currentTimestamp = Date.now();
 
-  /**
-   * Fetch all bins from a bin manager
-   * @param binManagerId - The ID of the bin manager object
-   * @param positionVersion - Version string of the position
-   * @returns Promise resolving to sorted array of BinData
-   */
-  private async getBinsByManager(binManagerId: string): Promise<BinData[]> {
-    const grpcClient = this.sdk.grpcClient
-
-    const bins: BinData[] = []
-    let token: Uint8Array | undefined = undefined
-    while (true) {
-      const res = await grpcClient.stateService.listDynamicFields({
-        parent: binManagerId,
-        readMask: {
-          paths: ['field_id', 'child_id', 'field_object.contents'],
-        },
-        pageSize: 500,
-        pageToken: token
-      }).response
-
-      if (!!res.nextPageToken) {
-        token = getNextPageToken(res)
-      }
-  
-      const packed = res.dynamicFields.map((v) => PackedBinsStruct.parse(v.fieldObject?.contents?.value ?? new Uint8Array()))
-
-      bins.push(...packed.flatMap(binPacked => binPacked.value.bin_data.map(v => ({
-        id: v.bin_id,
-        liquidity: BigInt(v.amount)
-      } as BinData))))
-
-      if (!packed.length || !res.nextPageToken) {
-        break;
-      }
-    }
-
-    return bins.sort((a, b) => a.id - b.id)
+    return [currentLock, currentTimestamp, currentLock > currentTimestamp]
   }
 
   /**
-   * Get bin manager for a specific position
-   * @param positionManager - The ID of the position manager object
-   * @param positionId - The ID of the position
-   * @returns Promise resolving to bin manager data
-   * @throws Error if position manager ID is invalid or bin manager not found
+   * Creates transaction to collect LP fees from a position
+   * @param params - Fee collection parameters
+   * @param tx - Optional existing transaction to append to
+   * @param inputCoinA - Optional pre-built coin A object
+   * @param inputCoinB - Optional pre-built coin B object
+   * @returns Transaction object for fee collection
    */
-  private async getBinManager(
-    positionManager: string,
-    positionId: string
-  ): Promise<{
-    id: {
-      id: string
-    }
-    size: string
-  }> {
-    const cache = this._cache[positionId]
-    if (cache) {
-      return cache.value
-    }
-    // Validate position manager address
-    if (!isValidSuiAddress(positionManager)) {
-      throw new Error('Invalid position manager id')
+  async collectFeeTransactionPayload(
+    params: CollectFeeParams,
+    tx?: Transaction,
+    inputCoinA?: TransactionObjectArgument,
+    inputCoinB?: TransactionObjectArgument
+  ): Promise<Transaction> {
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
+      throw new DammpoolsError(
+        'Invalid sender address: ferra damm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
+        UtilsErrorCode.InvalidSendAddress
+      )
     }
 
-    const suiClient = this.sdk.fullClient
+    tx = tx || new Transaction()
 
-    // Fetch position info from position manager
-    const positionInfo = await suiClient.getDynamicFieldObject({
-      parentId: positionManager,
-      name: {
-        type: '0x2::object::ID',
-        value: positionId,
-      },
+    // Build zero-balance coins if not provided
+    const coinA = inputCoinA || TransactionUtil.buildCoinWithBalance(BigInt(0), params.coinTypeA)
+    const coinB = inputCoinB || TransactionUtil.buildCoinWithBalance(BigInt(0), params.coinTypeB)
+
+    this.createCollectFeePaylod(params, tx, coinA, coinB)
+    return tx
+  }
+
+  /**
+   * Internal method to create collect fee move call
+   * @param params - Fee collection parameters
+   * @param tx - Transaction object
+   * @param primaryCoinAInput - Coin A object
+   * @param primaryCoinBInput - Coin B object
+   * @returns Transaction object with collect fee call
+   */
+  createCollectFeePaylod(
+    params: CollectFeeParams,
+    tx: Transaction,
+    primaryCoinAInput: TransactionObjectArgument,
+    primaryCoinBInput: TransactionObjectArgument
+  ) {
+    const { damm_pool, integrate } = this.sdk.sdkOptions
+    const typeArguments = [params.coinTypeA, params.coinTypeB]
+    const args = [
+      tx.object(getPackagerConfigs(damm_pool).global_config_id),
+      tx.object(params.pool_id),
+      tx.object(params.pos_id),
+      primaryCoinAInput,
+      primaryCoinBInput,
+    ]
+
+    tx.moveCall({
+      target: `${integrate.published_at}::${DammIntegratePoolModule}::collect_fee`,
+      typeArguments,
+      arguments: args,
+    })
+    return tx
+  }
+
+  /**
+   * Creates collect fee call without sending coins to sender
+   * Used when coins need to be used in subsequent operations
+   * @param params - Fee collection parameters
+   * @param tx - Transaction object
+   * @param primaryCoinAInput - Coin A object
+   * @param primaryCoinBInput - Coin B object
+   * @returns Transaction object with collect fee call
+   */
+  createCollectFeeNoSendPaylod(
+    params: CollectFeeParams,
+    tx: Transaction,
+    primaryCoinAInput: TransactionObjectArgument,
+    primaryCoinBInput: TransactionObjectArgument
+  ) {
+    const { damm_pool, integrate } = this.sdk.sdkOptions
+    const typeArguments = [params.coinTypeA, params.coinTypeB]
+    const args = [
+      tx.object(getPackagerConfigs(damm_pool).global_config_id),
+      tx.object(params.pool_id),
+      tx.object(params.pos_id),
+      primaryCoinAInput,
+      primaryCoinBInput,
+    ]
+
+    tx.moveCall({
+      target: `${integrate.published_at}::${DammIntegratePoolModule}::collect_fee`,
+      typeArguments,
+      arguments: args,
+    })
+    return tx
+  }
+
+  /**
+   * Simulates fee collection to calculate claimable amounts
+   * Uses devInspectTransactionBlock for gas-free calculation
+   * @param params - Fee collection parameters
+   * @returns Object containing fee amounts for both tokens
+   */
+  async calculateFee(params: CollectFeeParams) {
+    const paylod = await this.collectFeeTransactionPayload(params)
+    if (!checkValidSuiAddress(this.sdk.senderAddress)) {
+      throw new DammpoolsError(
+        'Invalid sender address: ferra damm sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
+        UtilsErrorCode.InvalidSendAddress
+      )
+    }
+    const res = await this._sdk.fullClient.devInspectTransactionBlock({
+      transactionBlock: paylod,
+      sender: this.sdk.senderAddress,
     })
 
-    // Extract bin manager from position info
-    const binManager = this.getBinManagerByPositionInfo(positionInfo)
-
-    if (!binManager) {
-      throw new Error('Bin Manager not found')
-    }
-    this._cache[positionId] = new CachedContent(binManager);
-    return binManager
-  }
-
-  /**
-   * Extract struct content fields from a Sui object response
-   * @param object - SuiObjectResponse to parse
-   * @returns Parsed fields or null if invalid
-   */
-  private getStructContentFields<T extends Object>(object: SuiObjectResponse): T | null {
-    // Skip package objects or objects without fields
-    if (object.data?.content?.dataType === 'package' || !object.data?.content?.fields) {
-      return null
+    // Extract fee amounts from simulation events
+    for (const event of res.events) {
+      if (extractStructTagFromType(event.type).name === 'CollectFeeEvent') {
+        const json = event.parsedJson as any
+        return {
+          feeOwedA: json.amount_a,
+          feeOwedB: json.amount_b,
+        }
+      }
     }
 
-    return object.data?.content?.fields as unknown as T
-  }
-
-  /**
-   * Extract bin manager from position info object
-   * @param positionInfo - SuiObjectResponse containing position info
-   * @returns Bin manager fields or null if not found
-   */
-  private getBinManagerByPositionInfo(positionInfo: SuiObjectResponse): {
-    id: {
-      id: string
-    }
-    size: string
-  } | null {
-    const content = this.getStructContentFields<PositionInfoOnChain>(positionInfo)
-    const binManager = content?.value?.fields?.bins?.fields
-
-    return binManager ?? null
-  }
-
-  /**
-   * Parse raw position content into LBPosition format
-   * @param typeTag - The type tag string of the position object
-   * @param contents - The parsed data content from chain
-   * @param version - Version string of the position
-   * @returns Parsed LBPosition or null if invalid
-   */
-  private parsePositionContent(typeTag: string, positionOnChain: LbPositionOnChain, version: string): LBPosition | null {
-    // Parse and validate struct tag
-    const structTag = parseStructTag(typeTag)
-    const {
-      damm_pool: { package_id, published_at },
-    } = this.sdk.sdkOptions
-
-    // Validate position type matches expected structure
-    if (
-      (structTag.address !== package_id && structTag.address !== published_at) ||
-      structTag.module !== 'lb_position' ||
-      structTag.name !== 'LBPosition'
-    ) {
-      return null
-    }
-
-    if (!positionOnChain) {
-      return null
-    }
-
-    // Convert to LBPosition format
     return {
-      id: positionOnChain.id.id,
-      tokenXType: positionOnChain.coin_type_a.fields.name,
-      tokenYType: positionOnChain.coin_type_b.fields.name,
-      pair_id: positionOnChain.pair_id,
-      saved_fees_x: BigInt(positionOnChain.saved_fees_x),
-      saved_fees_y: BigInt(positionOnChain.saved_fees_y),
-      saved_rewards: positionOnChain.saved_rewards.map(BigInt),
-      total_bins: Number(positionOnChain.total_bins),
-      lock_until: Number(positionOnChain.lock_until),
-      version,
+      feeOwedA: '0',
+      feeOwedB: '0',
     }
   }
-}
 
-function arrayToMap<T extends { id: number }>(value: T[]): Record<number, T> {
-  return value.reduce((p, v) => ((p[v.id] = v), p), {} as Record<number, T>)
+  /**
+   * Updates cached data with expiration time
+   * @param key - Cache key
+   * @param data - Data to cache
+   * @param time - Cache duration in minutes (default: 5)
+   */
+  private updateCache(key: string, data: SuiResource, time = cacheTime5min) {
+    let cacheData = this._cache[key]
+    if (cacheData) {
+      cacheData.overdueTime = getFutureTime(time)
+      cacheData.value = data
+    } else {
+      cacheData = new CachedContent(data, getFutureTime(time))
+    }
+    this._cache[key] = cacheData
+  }
+
+  /**
+   * Retrieves cached data if valid
+   * @param key - Cache key
+   * @param forceRefresh - Bypass cache if true
+   * @returns Cached data or undefined if expired/not found
+   */
+  private getCache<T>(key: string, forceRefresh = false): T | undefined {
+    const cacheData = this._cache[key]
+    const isValid = cacheData?.isValid()
+    if (!forceRefresh && isValid) {
+      return cacheData.value as T
+    }
+    if (!isValid) {
+      delete this._cache[key]
+    }
+    return undefined
+  }
 }
 
 type SizedArray<T, S extends number, Arr extends T[] = []> = Arr['length'] extends S ? Arr : SizedArray<T, S, [...Arr, T]>
-
-function getNextPageToken(o: any) {
-  return o.nextPageToken
-}

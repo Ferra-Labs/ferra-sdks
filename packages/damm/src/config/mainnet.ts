@@ -3,28 +3,28 @@ import { checkValidSuiAddress } from '../utils'
 
 const SDKConfig = {
   dammConfig: {
-    global_config: '0x5c9dacf5a678ea15b8569d65960330307e23d429289ca380e665b1aa175ebeca',
-    pairs_id: '0x71ae968a99fd9a0b6a46519d7875fcc454c9811a3a6da8114382e6d926e78a04',
-    reward_vault: '0xd68c56a1610953b0a81c48ad26e463c6c51e50ddcc13e5e4121fe70ee75c1bf7',
+    pools_id: '0x0eed6ad3e892da66858251e4f5f2ae7b64081894cb5c52e9ff0f575f7e4b32a1',
+    global_config_id: '0x690dca273b863ad44ab125d34c4538ac4eb16e22f66e3720a2de9608e1552a68',
+    global_rewarder_vault_id: '0x2a13d3b3bbc00faf59fd9a4cf961e568529db0ff2c2edea13e28ce3bc3da32e1'
   }
 }
 
 // mainnet
 export const dammMainnet: SdkOptions = {
-  fullRpcUrl: 'https://wallet-rpc.mainnet.sui.io',
+  fullRpcUrl: 'https://mainnet.suiet.app:443',
   simulationAccount: {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   damm_pool: {
-    package_id: '0x5a5c1d10e4782dbbdec3eb8327ede04bd078b294b97cfdba447b11b846b383ac',
-    published_at: '0x01aca2702b2402f13eacdf9f3e49f5d1bdd3ec5cc7d11847cf8acbaef1cb6d5c',
+    package_id: '0x45a137f238cc1205e220a4997fc0a8312427064cfae441f8c6ca12bf712f6232',
+    published_at: '0x45a137f238cc1205e220a4997fc0a8312427064cfae441f8c6ca12bf712f6232',
     config: SDKConfig.dammConfig,
   },
   integrate: {
-    package_id: '',
-    published_at: '',
+    package_id: '0x103a7d00f1f49f2289740f41fabf5e3263e2c43db774a871baf5429cea4cef40',
+    published_at: '0x103a7d00f1f49f2289740f41fabf5e3263e2c43db774a871baf5429cea4cef40',
   },
-  dammApiUrl: "https://api.ferra.ag/damm/pair/"
+  swapCountUrl: 'https://api.ferra.xyz/damm/swap/pools'
 }
 
 /**

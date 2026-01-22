@@ -71,7 +71,7 @@ export function extractStructTagFromType(type: string): SuiStructTag {
         ...tag,
         type_arguments: generics.map((item) => extractStructTagFromType(item).source_address),
       }
-      structTag.type_arguments = structTag.type_arguments.map((item: string) => {
+      structTag.type_arguments = structTag.type_arguments.map((item) => {
         return CoinAssist.isSuiCoin(item) ? item : extractStructTagFromType(item).source_address
       })
       structTag.source_address = composeType(structTag.full_address, structTag.type_arguments)

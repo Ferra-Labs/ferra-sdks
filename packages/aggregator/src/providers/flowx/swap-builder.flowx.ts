@@ -2,14 +2,8 @@ import { Transaction, TransactionObjectArgument, TransactionResult } from "@myst
 import { SuiClient } from "@mysten/sui/client";
 import { FlowxQuoteResponse } from "@7kprotocol/sdk-ts";
 import { TradeBuilder } from "./flowx-sdk/src";
+import { FerraConfig } from "../../interfaces/IAggSwapV2";
 
-/**
- * Ferra protocol configuration
- */
-interface FerraConfig {
-    packageId: string;
-    configId: string;
-}
 
 /**
  * FlowX protocol shared objects (Mainnet)

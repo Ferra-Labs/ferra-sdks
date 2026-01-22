@@ -9,11 +9,11 @@ export default createTsupConfig({
   ],
 
   banner: {
-    js: '/* DAMM SDK - Discrete Liquidity Market Maker v1.0.0 */',
+    js: '/* DAMM SDK v1.0.0 */',
   },
 
   define: {
-    __DAMM_VERSION__: '"1.0.0"',
+    __DLMM_VERSION__: '"1.0.0"',
     __PACKAGE_NAME__: '"@ferra-sdks/damm"',
   },
 
