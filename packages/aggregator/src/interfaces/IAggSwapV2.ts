@@ -51,3 +51,6 @@ export interface FerraConfig {
     packageId: string;
     configId: string;
 }
+
+
+export type SwapCustomizableOutput = { tx: Transaction, coinOut: TransactionObjectArgument }

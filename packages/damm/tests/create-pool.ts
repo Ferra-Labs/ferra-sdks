@@ -28,7 +28,9 @@ async function main() {
 
   const pools = await sdk.Pool.getPools();
   console.log('pools', inspect(pools, { depth: null, colors: true }));
-
+  if (pools) {
+    return;
+  }
   const fees = await sdk.Pool.getBaseFeesAvailable();
   console.log('pools', inspect(fees, { depth: null, colors: true }));
 
@@ -38,11 +40,7 @@ async function main() {
   const coin_b_decimals = 9
   const coin_type_a = `0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC`
   const coin_type_b = `0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI`
-  console.log('wallet', sdk.senderAddress);
-  const index = TickMath.priceToTickIndex(Decimal(1), 6, 9);
-  if (index) {
-    return;
-  }
+
   const initialize_sqrt_price = TickMath.priceToSqrtPriceX64(d(1.2),6,6).toString()
   const current_tick_index = TickMath.sqrtPriceX64ToTickIndex(new BN(initialize_sqrt_price))
   // build tick range

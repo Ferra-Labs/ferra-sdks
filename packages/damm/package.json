@@ -1,6 +1,6 @@
 {
   "name": "@phoenix0x02/damm",
-  "version": "0.0.1-dev.8",
+  "version": "0.0.1-dev.11",
   "private": false,
   "description": "SDK for concentrated liquidity market maker",
   "main": "dist/index.js",

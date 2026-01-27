@@ -235,7 +235,7 @@ export class PoolModule implements IModule {
           PoolErrorCode.InvalidPoolObject
         )
       }
-      console.log('suiObj', inspect(suiObj.data.content.fields, { depth: null, colors: true }));
+      // console.log('suiObj', inspect(suiObj.data.content.fields, { depth: null, colors: true }));
       
       const pool = buildPool(suiObj)
       allPool.push(pool)
@@ -579,6 +579,9 @@ export class PoolModule implements IModule {
         UtilsErrorCode.InvalidSendAddress
       )
     }
+
+    params.tick_lower ??= -443636;
+    params.tick_upper ??= 443636;
 
     const tx = new Transaction()
     tx.setSender(this.sdk.senderAddress)

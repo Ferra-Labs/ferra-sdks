@@ -155,6 +155,8 @@ export function buildPool(objects: SuiObjectResponse): Pool {
       idReference: Number(asIntN(BigInt(fields.parameters.fields.id_reference.fields.bits))),
       activationTimestamp: BigInt(fields.parameters.fields.activation_timestamp),
       currentTickIndex: Number(asIntN(BigInt(fields.parameters.fields.current_tick_index.fields.bits))),
+      tickLowerIndex: Number(asIntN(BigInt(fields.parameters.fields.lower_tick_index.fields.bits))),
+      tickUpperIndex: Number(asIntN(BigInt(fields.parameters.fields.upper_tick_index.fields.bits))),
       currentSqrtPrice: BigInt(fields.parameters.fields.current_sqrt_price),
       cliffFeeNumerator: BigInt(fields.parameters.fields.cliff_fee_numerator),
       decayPeriod: BigInt(fields.parameters.fields.decay_period),

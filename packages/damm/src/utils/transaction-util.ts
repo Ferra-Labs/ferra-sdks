@@ -570,8 +570,6 @@ export class TransactionUtil {
       ? [
           transaction.object(dammConfiguration.global_config_id),
           transaction.object(liquidityParams.pool_id),
-          transaction.pure.u32(Number(asUintN(BigInt(liquidityParams.tick_lower)).toString())),
-          transaction.pure.u32(Number(asUintN(BigInt(liquidityParams.tick_upper)).toString())),
           coinAInputs.targetCoin,
           coinBInputs.targetCoin,
           transaction.pure.u64(liquidityParams.amount_a),

@@ -223,6 +223,8 @@ export type Pool = {
   parameters: {
     currentSqrtPrice: bigint
     currentTickIndex: number
+    tickLowerIndex: number
+    tickUpperIndex: number
     activationTimestamp: bigint
     cliffFeeNumerator: bigint
     decayPeriod: bigint
@@ -469,12 +471,12 @@ export type CreatePoolAddLiquidityParams = CreatePoolParams & {
   /**
    * The lower tick index for liquidity provision.
    */
-  tick_lower: number
+  tick_lower?: number
 
   /**
    * The upper tick index for liquidity provision.
    */
-  tick_upper: number
+  tick_upper?: number
 
   lock_until?: number
   collect_fee_mode: number

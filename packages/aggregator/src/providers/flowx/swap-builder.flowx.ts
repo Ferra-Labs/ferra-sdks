@@ -2,7 +2,7 @@ import { Transaction, TransactionObjectArgument, TransactionResult } from "@myst
 import { SuiClient } from "@mysten/sui/client";
 import { FlowxQuoteResponse } from "@7kprotocol/sdk-ts";
 import { TradeBuilder } from "./flowx-sdk/src";
-import { FerraConfig } from "../../interfaces/IAggSwapV2";
+import { FerraConfig, SwapCustomizableOutput } from "../../interfaces/IAggSwapV2";
 
 
 /**
@@ -183,6 +183,93 @@ export class FlowXSwapBuilder {
         tx.transferObjects([coinOut], sender);
 
         return tx;
+    }
+
+    async buildSwapWithCoinOut(params: {
+        tx: Transaction;
+        sender: string;
+        fromType: string;
+        targetType: string;
+        coinIn: TransactionObjectArgument;
+        routeData: FlowxQuoteResponse;
+        slippageBps: number;
+        deadlineMs?: number;
+    }): Promise<SwapCustomizableOutput> {
+        const {
+            tx,
+            sender,
+            fromType,
+            targetType,
+            coinIn,
+            routeData,
+            slippageBps,
+            deadlineMs,
+        } = params;
+
+        // Validate shared objects are set
+        if (!FlowXSwapBuilder.sharedObjects) {
+            throw new Error(
+                "FlowX shared objects not set. Call FlowXSwapBuilder.setSharedObjects() first."
+            );
+        }
+
+        const flowxObjects = FlowXSwapBuilder.sharedObjects;
+
+        // Calculate amounts
+        const amountOut = routeData.amountOut.toString();
+        const minAmountOut = this.calculateMinAmountOut(amountOut, slippageBps);
+        const deadline = deadlineMs ?? Date.now() + 30 * 60 * 1000; // +30 minutes
+        const routeAmounts = routeData.routes.map((r) => r.amountIn.toString());
+
+        // Step 1: Ferra start_swap
+        // Returns (SwapRequest, Trade<CoinIn, CoinOut>)
+        const [swapRequest, trade] = tx.moveCall({
+            target: `${this.ferraConfig.packageId}::flowx::start_swap`,
+            typeArguments: [fromType, targetType],
+            arguments: [
+                tx.object(this.ferraConfig.configId),
+                tx.object(flowxObjects.treasury),
+                tx.object(flowxObjects.tradeIdTracker),
+                tx.object(flowxObjects.partnerRegistry),
+                coinIn,
+                tx.pure.u64(minAmountOut),      // amount_out_limit - min after Ferra fee
+                tx.pure.u64(amountOut),         // amount_out_expected - for FlowX
+                tx.pure.u64(slippageBps),       // slippage in basis points
+                tx.pure.u64(deadline),          // deadline in milliseconds
+                tx.pure.vector("u64", routeAmounts),
+                tx.object(flowxObjects.versioned),
+            ],
+        });
+
+        // Step 2: Execute all routes using SDK's swapRoutes
+        // This handles start_routing, individual swaps, and finish_routing
+        const tradeObj = TradeBuilder.fromRoutes(routeData.routes as any)
+            .slippage(slippageBps)
+            .build();
+
+        await tradeObj.swapRoutes({
+            tx,
+            tradeObject: trade as any,
+            client: this.suiClient,
+        });
+
+        // Step 3: Ferra confirm_swap
+        // Calls settle(), validates slippage, deducts fee
+        const [_coinOut] = tx.moveCall({
+            target: `${this.ferraConfig.packageId}::flowx::confirm_swap`,
+            typeArguments: [fromType, targetType],
+            arguments: [
+                tx.object(this.ferraConfig.configId),
+                swapRequest,
+                trade,
+                tx.object(flowxObjects.treasury),
+                tx.object(flowxObjects.partnerRegistry),
+                tx.object(flowxObjects.versioned),
+                tx.object("0x6"), // Clock
+            ],
+        });
+
+        return { tx, coinOut: _coinOut };
     }
 
     /**

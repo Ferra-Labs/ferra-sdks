@@ -1,5 +1,5 @@
 import { Transaction, TransactionObjectArgument } from "@mysten/sui/dist/cjs/transactions";
-import { SwapBluefin7kInput, SwapCetusInput, SwapFlowXInput } from "../interfaces/IAggSwapV2";
+import { SwapBluefin7kInput, SwapCetusInput, SwapCustomizableOutput, SwapFlowXInput } from "../interfaces/IAggSwapV2";
 import { CetusSwapBuilder } from "../providers/cetus/swap-builder.cetus";
 import { FlowXSwapBuilder } from "../providers/flowx/swap-builder.flowx";
 import { FerraAggregatorV2SDK } from "../sdk";
@@ -49,6 +49,20 @@ export class TxBuilder {
         });
     }
 
+    async swapCustomizableOnCetus(params: SwapCetusInput): Promise<SwapCustomizableOutput> {
+        const { fromType, targetType, coinIn, quote, slippageBps, tx, sender } = params;
+
+        return await this._cetusBuilder.buildSwapWithCoinOut({
+            tx,
+            sender,
+            fromType,
+            targetType,
+            coinIn,
+            routerData: quote,
+            slippageBps,
+        });
+    }
+
     async swapOnFlowX(params: SwapFlowXInput): Promise<Transaction> {
         const { fromType, targetType, coinIn, quote, slippageBps, tx, sender } = params;
 
@@ -63,10 +77,38 @@ export class TxBuilder {
         });
     }
 
+    async swapCustomizableOnFlowX(params: SwapFlowXInput): Promise<SwapCustomizableOutput> {
+        const { fromType, targetType, coinIn, quote, slippageBps, tx, sender } = params;
+
+        return await this._flowxBuilder.buildSwapWithCoinOut({
+            tx,
+            sender,
+            fromType,
+            targetType,
+            coinIn,
+            routeData: quote,
+            slippageBps,
+        });
+    }
+
     async swapOnBluefin7k(params: SwapBluefin7kInput): Promise<Transaction> {
         const { fromType, targetType, coinIn, quote, slippageBps, tx, sender } = params;
 
         return await this._bluefin7kBuilder.buildSwapWithRoute({
+            tx,
+            sender,
+            fromType,
+            targetType,
+            coinIn,
+            routeData: quote,
+            slippageBps,
+        });
+    }
+
+    async swapCustomizableOnBluefin7k(params: SwapBluefin7kInput): Promise<SwapCustomizableOutput> {
+        const { fromType, targetType, coinIn, quote, slippageBps, tx, sender } = params;
+
+        return await this._bluefin7kBuilder.buildSwapWithCoinOut({
             tx,
             sender,
             fromType,

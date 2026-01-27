@@ -6,6 +6,7 @@ import {
 } from "@cetusprotocol/aggregator-sdk";
 import { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions";
 import { SuiClient } from "@mysten/sui/client";
+import { SwapCustomizableOutput } from "../../interfaces/IAggSwapV2";
 
 /**
  * Ferra protocol configuration
@@ -127,6 +128,63 @@ export class CetusSwapBuilder {
     tx.transferObjects([coinOut], sender);
 
     return tx;
+  }
+
+  async buildSwapWithCoinOut(params: {
+    tx: Transaction;
+    sender: string;
+    fromType: string;
+    targetType: string;
+    coinIn: TransactionObjectArgument;
+    routerData: RouterDataV3;
+    slippageBps: number;
+  }): Promise<SwapCustomizableOutput> {
+    const { tx, sender, fromType, targetType, coinIn, routerData, slippageBps } = params;
+
+    // Calculate minimum acceptable output with slippage protection
+    const amountOut = routerData.amountOut.toString();
+    const minAmountOut = this.calculateMinAmountOut(amountOut, slippageBps);
+
+    // Step 1: Process routes to get FlattenedPath[]
+    // This is required by Cetus SDK's dexRouter.swap()
+    const processedData = processFlattenRoutes(routerData);
+
+    if (!processedData.flattenedPaths || processedData.flattenedPaths.length === 0) {
+      throw new Error("No swap paths found after processing routerData");
+    }
+
+    // Step 2: Extract Pyth price IDs from paths and update on-chain
+    const pythPriceIDs = await this.getPythPriceIDs(tx, processedData.flattenedPaths);
+
+    // Step 3: Initialize Ferra swap context
+    // Returns swapRequest (for tracking) and swapCtx (passed to DEX routers)
+    const [swapRequest, swapCtx] = tx.moveCall({
+      target: `${this.ferraConfig.packageId}::cetus::start_swap`,
+      typeArguments: [fromType, targetType],
+      arguments: [
+        tx.object(this.ferraConfig.configId),
+        tx.pure.string(processedData.quoteID || ""),
+        tx.pure.u64(minAmountOut),
+        tx.pure.u64(amountOut),
+        coinIn,
+      ],
+    });
+
+    // Step 4: Execute swaps through Cetus DEX routers
+    this.buildDexRouterSwaps(tx, swapCtx, processedData.flattenedPaths, pythPriceIDs);
+
+    // Step 5: Finalize swap, validate output, collect fee
+    const [_coinOut] = tx.moveCall({
+      target: `${this.ferraConfig.packageId}::cetus::confirm_swap`,
+      typeArguments: [targetType],
+      arguments: [
+        tx.object(this.ferraConfig.configId),
+        swapRequest,
+        swapCtx,
+      ],
+    });
+
+    return { tx, coinOut: _coinOut };
   }
 
   /**

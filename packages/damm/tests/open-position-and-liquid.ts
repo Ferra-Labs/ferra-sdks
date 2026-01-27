@@ -72,7 +72,7 @@ async function main() {
     slippage: 0.05,
     tick_lower: tick_lower,
     tick_upper: tick_upper,
-    pool_id: '0xf8c26292e0a7e41ded11bc8c3b13f30d3edbf3dd6ef74ed77c2aa97c5b0a9429',
+    pool_id: '0xdca1d6eb15b9365cb5db01cee318e64f03ad6d400e6a6065cc8090b500419145',
     pos_id: '',
     rewarder_coin_types: [],
     is_open: true,
