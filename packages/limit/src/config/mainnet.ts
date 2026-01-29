@@ -1,0 +1,52 @@
+import type { SdkOptions } from '../sdk'
+import { FerraDcaSDK } from '../sdk'
+import { checkValidSuiAddress } from '../utils/tx-block'
+import { LimitError, LimitErrorCode } from '../errors/errors'
+// mainnet
+export const dcaMainnet: SdkOptions = {
+  fullRpcUrl: 'https://mainnet.suiet.app:443',
+  simulationAccount: {
+    address: '0x0000000000000000000000000000000000000000000000000000000000000000',
+  },
+  limit_order: {
+    /**
+     * https://www.moveregistry.com/package/@cetuspackages/limit-order
+     */
+    package_id: '0x533fab9a116080e2cb1c87f1832c1bf4231ab4c32318ced041e75cc28604bba9',
+    published_at: '0x37d6284f2c6cdeb5663124be7e44016399b1b657bc51564d67ec480bdff15491',
+    version: 3,
+    config: {
+      limit_order_config: '0xe7fa62b6fc095ed5659b85c735f4322059e1f4616dcf3343adece6e7eb52bf47',
+      rate_orders_indexer_id: '0xe7fa62b6fc095ed5659b85c735f4322059e1f4616dcf3343adece6e7eb52bf47',
+      rate_orders_indexer_handle: '0x81a95c812cab1c9cc7a1c10446d93d2d9517097211c72b544f7efed33b540bcc',
+      global_config_id: '0xd3403f23a053b52e5c4ef0c2a8be316120c435ec338f2596647b6befd569fd9c',
+      token_list_handle: '0x644a7f05eff2a1b4c266d7ce849c8494fb068a4e29037c7c523e5eb822389d8d',
+      user_orders_indexer_id: '0x7f851ac19e438f97e78a5335eed4f12766a3a0ae94340bab7956a402f0e6212e',
+      user_orders_indexer_handle: '0x84703679acd2eeaee8de4945be79d029ab94966bc22e0f6cfd696032fd31bbc7',
+    },
+  },
+}
+
+/**
+ * Initialize the mainnet SDK
+ * @param fullNodeUrl. If provided, it will be used as the full node URL.
+ * @param simulationAccount. If provided, it will be used as the simulation account address.
+ *                           when you use the `preswap` method or other methods that require payment assistance,
+ *                           you must configure a simulation account with sufficient balance of input tokens.
+ *                           If you connect the wallet, you can set the current wallet address to simulationAccount.
+ * @returns
+ */
+export function initMainnetSDK(fullNodeUrl?: string, wallet?: string): FerraDcaSDK {
+  if (fullNodeUrl) {
+    dcaMainnet.fullRpcUrl = fullNodeUrl
+  }
+  const sdk = new FerraDcaSDK(dcaMainnet)
+  if (wallet) {
+    if (checkValidSuiAddress(wallet)) {
+      sdk.senderAddress = wallet
+    } else {
+      throw new LimitError('Invalid Address', LimitErrorCode.BuildError)
+    }
+  }
+  return sdk
+}

@@ -34,4 +34,4 @@ export const MIN_SQRT_PRICE = '4295048016'
  * The denominator which the fee rate is divided on.
  * @category Constants
  */
-export const FEE_RATE_DENOMINATOR = new BN(1_000_000)
+export const FEE_RATE_DENOMINATOR = new BN(1_000_000_000)

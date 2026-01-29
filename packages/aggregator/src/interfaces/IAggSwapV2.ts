@@ -33,6 +33,14 @@ export type SwapV2Params = {
     amountOut: string;
 }
 
+export type SwapV2ParamsInputCustomizable = {
+    quote: MetaQuote;
+    fromType: string;
+    targetType: string;
+    amountIn: TransactionObjectArgument;
+    amountOut: string;
+}
+
 export type SwapCetusInput = {
     fromType: string,
     targetType: string,

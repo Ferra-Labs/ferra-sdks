@@ -20,9 +20,18 @@ export type SwapResult = {
   amountIn: BN
   amountOut: BN
   feeAmount: BN
-  refAmount: BN
+  startSqrtPrice: BN
   nextSqrtPrice: BN
-  crossTickNum: number
+  isExceed: boolean
+  stepResults: Array<{
+    currentSqrtPrice: BN
+    targetSqrtPrice: BN
+    currentLiquidity: BN
+    amountIn: BN
+    amountOut: BN
+    feeAmount: BN
+    remainderAmount: BN
+  }>
 }
 
 export type CoinAmounts = {
@@ -253,6 +262,8 @@ export function computeSwapStep(
   let amountOut: BN
   let nextSqrtPrice: BN
   let feeAmount: BN
+  console.log('feeRate', feeRate.toNumber());
+  
   if (byAmountIn) {
     const amountRemain = MathUtil.checkMulDivFloor(
       amount,
@@ -301,80 +312,108 @@ export function computeSwapStep(
  * @returns
  */
 export function computeSwap(
-  aToB: boolean,
+  poolData: DammpoolData,
+  a2b: boolean,
   byAmountIn: boolean,
   amount: BN,
-  poolData: DammpoolData,
   swapTicks: Array<TickData>
 ): SwapResult {
-  let remainerAmount = amount
+  
+  let currentSqrtPrice = poolData.currentSqrtPrice
   let currentLiquidity = poolData.liquidity
-  let { currentSqrtPrice } = poolData
-  const swapResult: SwapResult = {
+  let remainingAmount = amount
+  let amountInTotal = ZERO
+  let amountOutTotal = ZERO
+  let feeAmountTotal = ZERO
+  
+  const result: SwapResult = {
     amountIn: ZERO,
     amountOut: ZERO,
     feeAmount: ZERO,
-    refAmount: ZERO,
-    nextSqrtPrice: ZERO,
-    crossTickNum: 0,
+    startSqrtPrice: currentSqrtPrice,
+    nextSqrtPrice: currentSqrtPrice,
+    isExceed: false,
+    stepResults: []
   }
-  let targetSqrtPrice
-  let signedLiquidityChange
-  const sqrtPriceLimit = SwapUtils.getDefaultSqrtPriceLimit(aToB)
+
+  const sqrtPriceLimit = SwapUtils.getDefaultSqrtPriceLimit(a2b)
+
   for (const tick of swapTicks) {
-    if (aToB && poolData.currentTickIndex < tick.index) {
-      continue
-    }
-    if (!aToB && poolData.currentTickIndex >= tick.index) {
-      continue
-    }
-    if (tick === null) {
-      continue
-    }
-    if ((aToB && sqrtPriceLimit.gt(tick.sqrtPrice)) || (!aToB && sqrtPriceLimit.lt(tick.sqrtPrice))) {
-      targetSqrtPrice = sqrtPriceLimit
+    if (a2b && poolData.currentTickIndex < tick.index) continue
+    if (!a2b && poolData.currentTickIndex >= tick.index) continue
+
+    if (remainingAmount.eq(ZERO)) break
+
+    let targetSqrtPriceStep: BN
+    if ((a2b && sqrtPriceLimit.gt(tick.sqrtPrice)) || (!a2b && sqrtPriceLimit.lt(tick.sqrtPrice))) {
+      targetSqrtPriceStep = sqrtPriceLimit
+      result.isExceed = true 
     } else {
-      targetSqrtPrice = tick.sqrtPrice
+      targetSqrtPriceStep = tick.sqrtPrice
     }
 
-    const stepResult = computeSwapStep(currentSqrtPrice, targetSqrtPrice, currentLiquidity, remainerAmount, poolData.feeRate, byAmountIn)
+    const stepResult = computeSwapStep(
+      currentSqrtPrice,
+      targetSqrtPriceStep,
+      currentLiquidity,
+      remainingAmount,
+      poolData.feeRate,
+      byAmountIn
+    )
 
     if (!stepResult.amountIn.eq(ZERO)) {
-      remainerAmount = byAmountIn
-        ? remainerAmount.sub(stepResult.amountIn.add(stepResult.feeAmount))
-        : remainerAmount.sub(stepResult.amountOut)
+      if (byAmountIn) {
+        remainingAmount = remainingAmount.sub(stepResult.amountIn).sub(stepResult.feeAmount)
+      } else {
+        remainingAmount = remainingAmount.sub(stepResult.amountOut)
+      }
     }
 
-    swapResult.amountIn = swapResult.amountIn.add(stepResult.amountIn)
-    swapResult.amountOut = swapResult.amountOut.add(stepResult.amountOut)
-    swapResult.feeAmount = swapResult.feeAmount.add(stepResult.feeAmount)
+    amountInTotal = amountInTotal.add(stepResult.amountIn)
+    amountOutTotal = amountOutTotal.add(stepResult.amountOut)
+    feeAmountTotal = feeAmountTotal.add(stepResult.feeAmount)
+
+    result.stepResults.push({
+      currentSqrtPrice: currentSqrtPrice,
+      targetSqrtPrice: targetSqrtPriceStep,
+      currentLiquidity: currentLiquidity,
+      amountIn: stepResult.amountIn,
+      amountOut: stepResult.amountOut,
+      feeAmount: stepResult.feeAmount,
+      remainderAmount: remainingAmount
+    })
+
     if (stepResult.nextSqrtPrice.eq(tick.sqrtPrice)) {
-      signedLiquidityChange = tick.liquidityNet.mul(new BN(-1))
+      const liquidityNet = new BN(tick.liquidityNet.toString())
+      let signedLiquidityChange = liquidityNet
 
-      if (aToB) {
-        if (MathUtil.is_neg(signedLiquidityChange)) {
-          currentLiquidity = currentLiquidity.add(new BN(asUintN(BigInt(signedLiquidityChange.toString()), 128)))
-        } else {
-          currentLiquidity = currentLiquidity.add(signedLiquidityChange)
-        }
-      } else if (MathUtil.is_neg(signedLiquidityChange)) {
-        currentLiquidity = currentLiquidity.sub(new BN(asUintN(BigInt(signedLiquidityChange.toString()), 128)))
-      } else {
-        currentLiquidity = currentLiquidity.sub(signedLiquidityChange)
+      if (a2b) {
+        signedLiquidityChange = liquidityNet.neg()
       }
-
+      
+      if (signedLiquidityChange.isNeg()) {
+        currentLiquidity = currentLiquidity.sub(signedLiquidityChange.abs())
+      } else {
+        currentLiquidity = currentLiquidity.add(signedLiquidityChange)
+      }
+      
       currentSqrtPrice = tick.sqrtPrice
     } else {
       currentSqrtPrice = stepResult.nextSqrtPrice
     }
-    swapResult.crossTickNum += 1
-    if (remainerAmount.eq(ZERO)) {
+
+    if (remainingAmount.eq(ZERO)) {
       break
     }
   }
-  swapResult.amountIn = swapResult.amountIn.add(swapResult.feeAmount)
-  swapResult.nextSqrtPrice = currentSqrtPrice
-  return swapResult
+
+  result.amountIn = amountInTotal.add(feeAmountTotal)
+  
+  result.amountOut = amountOutTotal
+  result.feeAmount = feeAmountTotal
+  result.nextSqrtPrice = currentSqrtPrice // Giá cuối cùng sau khi swap
+
+  return result
 }
 
 /**

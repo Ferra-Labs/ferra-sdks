@@ -13,7 +13,7 @@ import {
 import { Percentage, U64_MAX, ZERO } from '../math'
 import { findAdjustCoin, TransactionUtil } from '../utils/transaction-util'
 import { extractStructTagFromType } from '../utils/contracts'
-import { DammFetcherModule } from '../types/sui'
+import { CLOCK_ADDRESS, DammFetcherModule } from '../types/sui'
 import { TickData, transDammpoolDataWithoutTicks } from '../types/damm-pool'
 import { FerraDammSDK } from '../sdk'
 import { IModule } from '../interfaces/IModule'
@@ -148,6 +148,7 @@ export class SwapModule implements IModule {
       transaction.pure.bool(swapParams.a2b),
       transaction.pure.bool(swapParams.byAmountIn),
       transaction.pure.u64(swapParams.amount),
+      transaction.object(CLOCK_ADDRESS)
     ]
 
     transaction.moveCall({
@@ -257,10 +258,10 @@ export class SwapModule implements IModule {
     }
 
     const swapCalculationResult = computeSwap(
+      poolData,
       calculationParams.a2b,
       calculationParams.byAmountIn,
       calculationParams.amount,
-      poolData,
       sortedTicks
     )
 
@@ -281,11 +282,11 @@ export class SwapModule implements IModule {
     }
 
     let additionalComputeLimit = 0
-    if (swapCalculationResult.crossTickNum > 6 && swapCalculationResult.crossTickNum < 40) {
-      additionalComputeLimit = 22000 * (swapCalculationResult.crossTickNum - 6)
+    if (swapCalculationResult.stepResults.length > 6 && swapCalculationResult.stepResults.length < 40) {
+      additionalComputeLimit = 22000 * (swapCalculationResult.stepResults.length - 6)
     }
 
-    if (swapCalculationResult.crossTickNum > 40) {
+    if (swapCalculationResult.stepResults.length > 40) {
       hasExceededLimits = true
     }
 

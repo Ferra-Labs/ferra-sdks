@@ -22,6 +22,7 @@
       "@phoenix0x02/clmm": ["packages/clmm/src"],
       "@phoenix0x02/dlmm": ["packages/dlmm/src"],
       "@phoenix0x02/damm": ["packages/damm/src"],
+      "@phoenix0x02/dca": ["packages/dca/src"],
       "@phoenix0x02/aggregator": ["packages/aggregator/src"]
     }
   },
@@ -29,7 +30,8 @@
     { "path": "./packages/clmm" },
     { "path": "./packages/dlmm" },
     { "path": "./packages/damm" },
-    { "path": "./packages/aggregator" }
+    { "path": "./packages/dca" },
+    { "path": "./packages/aggregator" },
   ],
   "exclude": ["node_modules", "dist", "build"]
 }

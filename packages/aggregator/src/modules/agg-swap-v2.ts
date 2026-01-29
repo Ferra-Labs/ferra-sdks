@@ -5,7 +5,7 @@ import { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions
 import { checkValidSuiAddress, TransactionUtil } from "../utils"
 import { IModuleV2 } from "../interfaces/IModuleV2"
 import { TxBuilder } from "../utils/tx-builder"
-import { SwapCustomizableOutput, SwapV2Params } from "../interfaces/IAggSwapV2"
+import { SwapCustomizableOutput, SwapV2Params, SwapV2ParamsInputCustomizable } from "../interfaces/IAggSwapV2"
 import { AggregatorError, RouterDataV3 } from "@cetusprotocol/aggregator-sdk"
 import { EProvider, FlowxQuoteResponse, QuoteResponse } from "@7kprotocol/sdk-ts"
 
@@ -176,6 +176,72 @@ export class AggSwapV2Module implements IModuleV2 {
           fromType,
           targetType,
           coinIn,
+          quote: params.quote.quote as QuoteResponse,
+          slippageBps,
+          tx,
+          sender,
+        })
+        break
+
+      default:
+        throw new AggregatorError("Provider not supported")
+    }
+
+    return data
+  }
+
+  public async swapWithInputCustomizable(params: SwapV2ParamsInputCustomizable, slippageBps: number = 100, tx: Transaction = new Transaction()): Promise<SwapCustomizableOutput> {
+    const sender = this.sdk.senderAddress
+
+    // Validate sender address is set and valid
+    if (!checkValidSuiAddress(sender)) {
+      throw new AggPairsError(
+        'Invalid sender address: ferra agg v2 sdk requires a valid sender address. Please set it using sdk.senderAddress = "0x..."',
+        UtilsErrorCode.InvalidSendAddress
+      )
+    }
+
+    // Set transaction sender
+    tx.setSender(sender)
+
+    const { fromType, targetType, amountIn, amountOut } = params
+
+    // Prepare input coin
+    console.log(`params.quote.provider`, params.quote.provider)
+    let data: SwapCustomizableOutput
+    // Route to appropriate provider's swap builder
+    switch (params.quote.provider) {
+      case EProvider.CETUS:
+        // Build swap transaction using Cetus aggregator routes
+        data = await new TxBuilder(this._sdk).swapCustomizableOnCetus({
+          fromType,
+          targetType,
+          coinIn: amountIn,
+          amountOut,
+          quote: params.quote.quote as RouterDataV3,
+          slippageBps,
+          tx,
+          sender,
+        })
+        break
+
+      case EProvider.FLOWX:
+        data = await new TxBuilder(this._sdk).swapCustomizableOnFlowX({
+          fromType,
+          targetType,
+          coinIn: amountIn,
+          quote: params.quote.quote as FlowxQuoteResponse,
+          slippageBps,
+          tx,
+          sender,
+        })
+        break
+
+      case EProvider.BLUEFIN7K:
+        data = await new TxBuilder(this._sdk).swapCustomizableOnBluefin7k({
+          fromType,
+          targetType,
+          coinIn: amountIn,
           quote: params.quote.quote as QuoteResponse,
           slippageBps,
           tx,

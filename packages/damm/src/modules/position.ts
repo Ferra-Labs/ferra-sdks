@@ -647,8 +647,6 @@ export class PositionModule implements IModule {
         arguments: [
           tx.object(getPackagerConfigs(damm_pool).global_config_id),
           tx.object(params.pool_id),
-          tx.pure.u32(Number(tick_lower)),
-          tx.pure.u32(Number(tick_upper)),
           primaryCoinAInputs.targetCoin,
           primaryCoinBInputs.targetCoin,
           tx.pure.u64(params.max_amount_a),
