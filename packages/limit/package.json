@@ -1,7 +1,7 @@
 {
-  "name": "@phoenix0x02/limit",
-  "version": "0.0.1-dev.1",
-  "description": "SDK for ferra dca",
+  "name": "@ferra-labs/limit",
+  "version": "v1.0.0",
+  "description": "SDK for ferra Limit Order",
   "typings": "dist/index.d.ts",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

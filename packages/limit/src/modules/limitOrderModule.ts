@@ -122,6 +122,7 @@ export class LimitOrderModule implements IModule {
 
   async getPoolIndexerId(pay_coin_type: string, target_coin_type: string): Promise<string | undefined> {
     const indexer_id = this._sdk.getCache<string>(`${pay_coin_type}_${target_coin_type}`)
+    
     try {
       if (indexer_id === undefined) {
         const info = await this.getLimitOrderPool(pay_coin_type, target_coin_type)
@@ -129,6 +130,8 @@ export class LimitOrderModule implements IModule {
           return info.indexer_id
         }
       }
+
+      return indexer_id;
     } catch (error) {
       handleError(LimitErrorCode.FetchError, error as Error, {
         [DETAILS_KEYS.METHOD_NAME]: 'getPoolIndexerId',

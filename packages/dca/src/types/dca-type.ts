@@ -28,7 +28,7 @@ export type OpenDcaOrderParams = {
   outCoinType: string
   inCoinAmount: string
   cycleFrequency: number
-  cycleCount: number
+  inAmountPerCycle: number
   perCycleMinOutAmount: string
   perCycleMaxOutAmount: string
   perCycleInAmountLimit: string

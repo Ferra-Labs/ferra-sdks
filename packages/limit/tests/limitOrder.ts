@@ -36,11 +36,8 @@ async function main() {
   const price = 1.35
   const expired_ts = Date.parse(new Date().toString()) + 7 * 24 * 60 * 60 * 1000 //7 day
   const orders = await sdk.LimitOrder.getOwnerLimitOrderList('0xe802f70133f9da29298de788b2229107d57f2f80867da2695c57ab60072c0da1')
-  if (orders) {
-    console.log('orders', orders);
-    
-    return
-  }
+  console.log('orders', orders);
+
   const payload = await sdk.LimitOrder.placeLimitOrder({
     pay_coin_amount,
     price,
@@ -51,8 +48,18 @@ async function main() {
     pay_decimal: 6,
   })
 
-  const txResult = await sdk.fullClient.sendTransaction(wallet, payload)
-  console.log('txResult: ', txResult)
+  const payload2 = await sdk.LimitOrder.placeLimitOrder({
+    pay_coin_amount,
+    price,
+    expired_ts,
+    pay_coin_type: pool.pay_coin_type,
+    target_coin_type: pool.target_coin_type,
+    target_decimal: 6,
+    pay_decimal: 6,
+  })
+
+  // const txResult = await sdk.fullClient.sendTransaction(wallet, payload)
+  // console.log('txResult: ', txResult)
 }
 
 main()

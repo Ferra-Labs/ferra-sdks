@@ -12,17 +12,17 @@ export const dcaMainnet: SdkOptions = {
     /**
      * https://www.moveregistry.com/package/@cetuspackages/limit-order
      */
-    package_id: '0x533fab9a116080e2cb1c87f1832c1bf4231ab4c32318ced041e75cc28604bba9',
-    published_at: '0x37d6284f2c6cdeb5663124be7e44016399b1b657bc51564d67ec480bdff15491',
-    version: 3,
+    package_id: '0xf72cf9820c5e8cc2e5f796eab8d61693a043ffaf4bf1549cb66626cf4a4be223',
+    published_at: '0xf72cf9820c5e8cc2e5f796eab8d61693a043ffaf4bf1549cb66626cf4a4be223',
+    version: 1,
     config: {
-      limit_order_config: '0xe7fa62b6fc095ed5659b85c735f4322059e1f4616dcf3343adece6e7eb52bf47',
-      rate_orders_indexer_id: '0xe7fa62b6fc095ed5659b85c735f4322059e1f4616dcf3343adece6e7eb52bf47',
-      rate_orders_indexer_handle: '0x81a95c812cab1c9cc7a1c10446d93d2d9517097211c72b544f7efed33b540bcc',
-      global_config_id: '0xd3403f23a053b52e5c4ef0c2a8be316120c435ec338f2596647b6befd569fd9c',
-      token_list_handle: '0x644a7f05eff2a1b4c266d7ce849c8494fb068a4e29037c7c523e5eb822389d8d',
-      user_orders_indexer_id: '0x7f851ac19e438f97e78a5335eed4f12766a3a0ae94340bab7956a402f0e6212e',
-      user_orders_indexer_handle: '0x84703679acd2eeaee8de4945be79d029ab94966bc22e0f6cfd696032fd31bbc7',
+      limit_order_config: '0x87cc714d5ec1838297bc2380fcbb3b198169f58a3b8962031de70705c1c4815f',
+      rate_orders_indexer_id: '0x961c76ebc2f5da7c49ef1e88259077fb72949e0172b6efad4d95dcb6807184c9',
+      rate_orders_indexer_handle: '0x1838d60f4e9201264712f562b3b17a150500c990df464fe59ea981c6b6e0e17a',
+      global_config_id: '0x467038b878da264085c919e53a99f7675947b3a60dbd41d92aa8d49f5b967b2d',
+      token_list_handle: '0x6e4da6e4926f502900ab89de9fc7899c3bbd4c20f6e55f01e1a27567288249d9',
+      user_orders_indexer_id: '0x49f3975dce16f765dc422b47ae839cc52a87e3c15f9210eee7ac367a5d130ff2',
+      user_orders_indexer_handle: '0xb5f6b44f3287a690e9942780e0123d76fbdd230f8a555d6e7184a4e4c038d090',
     },
   },
 }

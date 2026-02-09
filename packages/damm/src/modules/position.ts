@@ -803,10 +803,9 @@ export class PositionModule implements IModule {
     return tx
   }
 
-  public async lockPosition(pool: Pool, positionId: string, untilTimestamp: number) {
+  public async lockPosition(pool: Pool, positionId: string, untilTimestamp: number, tx = new Transaction()) {
     const sender = this.sdk.senderAddress
 
-    const tx = new Transaction()
     tx.setSender(sender)
     TransactionUtil.buildLockPosition(
       {

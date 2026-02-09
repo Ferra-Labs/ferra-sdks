@@ -54,7 +54,7 @@ export class DcaModule implements IModule {
           tx.object(dca_config_id ?? ''),
           inCoinObj,
           tx.pure.u64(params.cycleFrequency),
-          tx.pure.u64(params.cycleCount),
+          tx.pure.u64(params.inAmountPerCycle),
           tx.pure.u64(params.perCycleMinOutAmount),
           tx.pure.u64(params.perCycleMaxOutAmount),
           tx.pure.u64(params.perCycleInAmountLimit),
@@ -82,7 +82,7 @@ export class DcaModule implements IModule {
 
     params.forEach((order: CloseDcaOrderParams) => {
       const outCoin = tx.moveCall({
-        target: `${dca.published_at}::dca_order::cancle_order`,
+        target: `${dca.published_at}::dca_order::cancel_order`,
         typeArguments: [order.inCoinType, order.outCoinType],
         arguments: [tx.object(global_config_id), tx.object(order.orderId), tx.object(indexer_id), tx.object(CLOCK_ADDRESS)],
       })

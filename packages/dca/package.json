@@ -1,7 +1,7 @@
 {
-  "name": "@phoenix0x02/dca",
-  "version": "0.0.1-dev.1",
-  "description": "SDK for ferra dca",
+  "name": "@ferra-labs/dca",
+  "version": "v1.0.0",
+  "description": "SDK for Ferra dca",
   "typings": "dist/index.d.ts",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

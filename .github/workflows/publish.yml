@@ -82,6 +82,34 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Publish DCA SDK to npmjs
+        id: publish-dca
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
+        continue-on-error: true
+        run: |
+          cd packages/dca
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            npm publish --access public --tag latest
+          else
+            npm publish --access public --tag beta
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish Limit Order SDK to npmjs
+        id: publish-limit
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
+        continue-on-error: true
+        run: |
+          cd packages/limit
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            npm publish --access public --tag latest
+          else
+            npm publish --access public --tag beta
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Publish Status
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
         run: |
@@ -91,3 +119,5 @@ jobs:
           echo "| CLMM | ${{ steps.publish-clmm.outcome }} |" >> $GITHUB_STEP_SUMMARY
           echo "| DLMM | ${{ steps.publish-dlmm.outcome }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Aggregator | ${{ steps.publish-aggregator.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| DCA | ${{ steps.publish-dca.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Limit Order | ${{ steps.publish-limit.outcome }} |" >> $GITHUB_STEP_SUMMARY
