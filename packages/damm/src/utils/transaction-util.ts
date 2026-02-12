@@ -574,6 +574,8 @@ export class TransactionUtil {
           coinBInputs.targetCoin,
           transaction.pure.u64(liquidityParams.amount_a),
           transaction.pure.u64(liquidityParams.amount_b),
+          transaction.pure.u32(Number(asUintN(BigInt(liquidityParams.tick_lower)).toString())),
+          transaction.pure.u32(Number(asUintN(BigInt(liquidityParams.tick_upper)).toString())),
           transaction.pure.bool(liquidityParams.fix_amount_a),
           transaction.object(CLOCK_ADDRESS),
         ]

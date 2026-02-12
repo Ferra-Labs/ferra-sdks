@@ -47,7 +47,44 @@ import { bcs } from '@mysten/bcs'
 
 /**
  * Position module for managing liquidity positions in DAMM pools
- * Provides functionality for creating, updating, and managing positions
+ * Handles position creation, liquidity adjustments, fee collection, and rewards
+ * Positions are represented as NFTs that can be transferred or locked
+ *
+ * @example
+ * // Get all positions for a wallet
+ * const positions = await sdk.Position.getPositionList(
+ *   '0x_wallet_address',
+ *   [] // All pools
+ * );
+ *
+ * positions.forEach(pos => {
+ *   console.log(`Position ${pos.pos_object_id}`);
+ *   console.log(`Pool: ${pos.pool}`);
+ *   console.log(`Liquidity: ${pos.liquidity}`);
+ *   console.log(`Range: [${pos.tick_lower_index}, ${pos.tick_upper_index}]`);
+ * });
+ *
+ * @example
+ * // Add liquidity to existing position
+ * const addLiqTx = await sdk.Position.createAddLiquidityPayload({
+ *   pool_id: poolId,
+ *   pos_id: positionId,
+ *   coinTypeA: "0x2::sui::SUI",
+ *   coinTypeB: "0x5d4b...::coin::COIN",
+ *   delta_liquidity: "1000000000",
+ *   max_amount_a: "1100000000",  // 10% slippage
+ *   max_amount_b: "1100000"
+ * });
+ *
+ * @example
+ * // Collect fees from position
+ * const pool = await sdk.Pool.getPool(poolId);
+ * const collectTx = await sdk.Position.collectFeeTransactionPayload({
+ *   pool,
+ *   pos_id: positionId,
+ *   coinTypeA: pool.coinTypeA,
+ *   coinTypeB: pool.coinTypeB
+ * });
  */
 export class PositionModule implements IModule {
   protected _sdk: FerraDammSDK
@@ -70,16 +107,26 @@ export class PositionModule implements IModule {
     return `${ferraDamm}::position::Position`
   }
 
-  /**
-   * Retrieves transaction history for a specific position
-   * Supports custom RPC endpoints and filtering by multiple position IDs
-   * @param posId - Primary position ID to query
-   * @param originPosId - Optional original position ID for filtering
-   * @param fullRpcUrl - Optional custom RPC endpoint
-   * @param paginationArgs - Pagination parameters (default: 'all')
-   * @param order - Sort order for transactions (default: 'ascending')
-   * @returns Paginated list of position transactions
-   */
+ /**
+ * Gets transaction history for specific positions
+ * Returns liquidity changes, fee collections, reward claims
+ * @param account - Wallet address that owns positions
+ * @param positionIds - Array of position NFT IDs
+ * @param limit - Max transactions to return (default: 100)
+ * @param offset - Starting offset for pagination
+ * @returns Array of position transaction info
+ * @example
+ * const txList = await sdk.Position.getPositionTransactionList({
+ *   account: walletAddress,
+ *   positionIds: [posId1, posId2],
+ *   limit: 50
+ * });
+ * 
+ * txList.forEach(tx => {
+ *   console.log(`${tx.type}: ${tx.txDigest}`);
+ *   console.log(`  Timestamp: ${new Date(Number(tx.timestampMs))}`);
+ * });
+ */
   async getPositionTransactionList({
     posId,
     paginationArgs = 'all',
@@ -132,12 +179,34 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Retrieves all positions owned by an account
+   * Gets all positions owned by a specific wallet address
    * Optionally filters by pool IDs
-   * @param accountAddress - Owner's address
-   * @param assignPoolIds - Optional array of pool IDs to filter positions
-   * @param showDisplay - Include display metadata (default: true)
-   * @returns Array of Position objects owned by the account
+   * @param accountAddress - Wallet address to query positions for
+   * @param assignPoolIds - Filter by specific pool IDs (empty = all pools)
+   * @param showDisplay - Include NFT display metadata (default: true)
+   * @returns Array of position objects owned by the account
+   * @example
+   * // Get all positions
+   * const allPositions = await sdk.Position.getPositionList(
+   *   '0x_wallet_address'
+   * );
+   *
+   * // Get positions for specific pools only
+   * const filteredPositions = await sdk.Position.getPositionList(
+   *   '0x_wallet_address',
+   *   ['0x_pool1', '0x_pool2']
+   * );
+   *
+   * // Check position status
+   * filteredPositions.forEach(pos => {
+   *   const pool = await sdk.Pool.getPool(pos.pool);
+   *   const status = PositionUtil.getPositionStatus(
+   *     pool.currentTickIndex,
+   *     pos.tick_lower_index,
+   *     pos.tick_upper_index
+   *   );
+   *   console.log(`Position ${pos.pos_object_id}: ${status}`);
+   * });
    */
   async getPositionList(accountAddress: string, assignPoolIds: string[] = [], showDisplay = true): Promise<Position[]> {
     const allPosition: Position[] = []
@@ -188,12 +257,23 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Retrieves position data directly by ID (recommended method)
-   * Automatically fetches pool data to calculate rewards if needed
-   * @param positionID - Position object ID
-   * @param calculateRewarder - Calculate reward amounts (default: true)
-   * @param showDisplay - Include display metadata (default: true)
-   * @returns Complete position object with optional rewards
+   * Gets complete position data by position ID
+   * This is the recommended method - simpler than getPosition()
+   * @param positionID - Position NFT object ID
+   * @param calculateRewarder - Calculate pending rewards (default: true)
+   * @param showDisplay - Include NFT metadata (default: true)
+   * @returns Complete position object
+   * @throws {DammpoolsError} If position doesn't exist
+   * @example
+   * const position = await sdk.Position.getPositionById(
+   *   '0x_position_id',
+   *   true  // Calculate rewards
+   * );
+   *
+   * console.log(`Liquidity: ${position.liquidity}`);
+   * console.log(`Fee owed A: ${position.fee_owed_a}`);
+   * console.log(`Fee owed B: ${position.fee_owed_b}`);
+   * console.log(`Reward 0: ${position.reward_amount_owed_0}`);
    */
   async getPositionById(positionID: string, calculateRewarder = true, showDisplay = true): Promise<Position> {
     const position = await this.getSimplePosition(positionID, showDisplay)
@@ -206,11 +286,16 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Retrieves basic position data without reward calculations
-   * Uses cache to minimize RPC calls
-   * @param positionID - Position object ID
-   * @param showDisplay - Include display metadata (default: true)
-   * @returns Basic position object without rewards
+   * Gets basic position data without reward calculations
+   * Faster than getPositionById when rewards not needed
+   * @param positionID - Position NFT object ID
+   * @param showDisplay - Include NFT metadata (default: true)
+   * @returns Position object without reward amounts
+   * @example
+   * // Quick position check
+   * const position = await sdk.Position.getSimplePosition(positionId);
+   * console.log(`Range: [${position.tick_lower_index}, ${position.tick_upper_index}]`);
+   * console.log(`In pool: ${position.pool}`);
    */
   async getSimplePosition(positionID: string, showDisplay = true): Promise<Position> {
     const cacheKey = `${positionID}_getPositionList`
@@ -240,11 +325,22 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Batch retrieves multiple positions efficiently
-   * Uses cache and batch RPC calls to optimize performance
-   * @param positionIDs - Array of position object IDs
-   * @param showDisplay - Include display metadata (default: true)
+   * Batch fetches simple position data for multiple positions
+   * More efficient than calling getSimplePosition multiple times
+   * @param positionIDs - Array of position NFT IDs
+   * @param showDisplay - Include NFT metadata (default: true)
    * @returns Array of position objects
+   * @example
+   * const positions = await sdk.Position.getSipmlePositionList([
+   *   '0x_pos1',
+   *   '0x_pos2',
+   *   '0x_pos3'
+   * ]);
+   *
+   * // Quick overview
+   * positions.forEach(pos => {
+   *   console.log(`${pos.pos_object_id}: ${pos.liquidity} liquidity`);
+   * });
    */
   async getSipmlePositionList(positionIDs: SuiObjectIdType[], showDisplay = true): Promise<Position[]> {
     const positionList: Position[] = []
@@ -323,10 +419,31 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Simulates fee collection for multiple positions
-   * Uses devInspectTransactionBlock for gas-free simulation
-   * @param params - Array of position parameters for fee calculation
-   * @returns Array of fee quotes for each position
+   * Calculates pending fees for multiple positions
+   * Uses on-chain simulation for accurate calculations
+   * @param params - Array of position and pool parameters
+   * @returns Array of fee quotes (amounts owed)
+   * @example
+   * const fees = await sdk.Position.fetchPosFeeAmount([
+   *   {
+   *     pool_id: poolId1,
+   *     pos_id: posId1,
+   *     coinTypeA: "0x2::sui::SUI",
+   *     coinTypeB: "0x5d4b...::coin::COIN"
+   *   },
+   *   {
+   *     pool_id: poolId2,
+   *     pos_id: posId2,
+   *     coinTypeA: "0x2::sui::SUI",
+   *     coinTypeB: "0x456::usdc::USDC"
+   *   }
+   * ]);
+   *
+   * fees.forEach(fee => {
+   *   console.log(`Position: ${fee.position_id}`);
+   *   console.log(`Fee A: ${fee.feeOwedA.toString()}`);
+   *   console.log(`Fee B: ${fee.feeOwedB.toString()}`);
+   * });
    */
   public async fetchPosFeeAmount(params: FetchPosFeeParams[]): Promise<CollectFeesQuote[]> {
     const { damm_pool, integrate, simulationAccount } = this.sdk.sdkOptions
@@ -387,10 +504,21 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Batch fetches fee amounts for multiple positions
-   * Automatically retrieves position and pool data
-   * @param positionIDs - Array of position object IDs
+   * Batch fetches pending fees for multiple positions by ID
+   * Convenient wrapper around fetchPosFeeAmount
+   * @param positionIDs - Array of position NFT IDs
    * @returns Map of position ID to fee quote
+   * @example
+   * const feeMap = await sdk.Position.batchFetchPositionFees([
+   *   '0x_pos1',
+   *   '0x_pos2'
+   * ]);
+   *
+   * for (const [posId, fees] of Object.entries(feeMap)) {
+   *   console.log(`Position ${posId}:`);
+   *   console.log(`  Fee A: ${fees.feeOwedA.toString()}`);
+   *   console.log(`  Fee B: ${fees.feeOwedB.toString()}`);
+   * }
    */
   async batchFetchPositionFees(positionIDs: string[]): Promise<Record<string, CollectFeesQuote>> {
     const posFeeParamsList: FetchPosFeeParams[] = []
@@ -420,14 +548,24 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Creates transaction to add liquidity with fixed token amount
-   * Supports gas estimation for SUI token transactions
-   * @param params - Fixed token liquidity parameters
-   * @param gasEstimateArg - Optional gas estimation parameters for SUI
-   * @param tx - Optional existing transaction to append to
-   * @param inputCoinA - Optional pre-built coin A object
-   * @param inputCoinB - Optional pre-built coin B object
-   * @returns Transaction object for adding liquidity
+   * Creates a transaction to add liquidity with fixed token amounts
+   * Useful when you want to specify exact amounts rather than liquidity delta
+   * @param params - Parameters including amounts and slippage tolerance
+   * @returns Transaction for adding liquidity
+   * @example
+   * const tx = await sdk.Position.createAddLiquidityFixTokenPayload({
+   *   coinTypeA: "0x2::sui::SUI",
+   *   coinTypeB: "0x5d4b...::coin::COIN",
+   *   pool_id: poolId,
+   *   pos_id: positionId,
+   *   amount_a: 1000000000,  // 1 SUI
+   *   amount_b: 5000000,     // 5 COIN
+   *   fix_amount_a: true,    // Fix SUI, adjust COIN
+   *   slippage: 0.05,        // 5% slippage
+   *   tick_lower: -120,
+   *   tick_upper: 120,
+   *   collect_fee: true      // Auto-collect fees before adding
+   * });
    */
   async createAddLiquidityFixTokenPayload(
     params: AddLiquidityFixTokenParams,
@@ -583,13 +721,20 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Creates transaction to add liquidity to a position
-   * Automatically handles position creation if needed
-   * @param params - Liquidity addition parameters
-   * @param tx - Optional existing transaction to append to
-   * @param inputCoinA - Optional pre-built coin A object
-   * @param inputCoinB - Optional pre-built coin B object
-   * @returns Transaction object for adding liquidity
+   * Creates a transaction to add liquidity with exact liquidity delta
+   * Preferred method when you know the exact liquidity amount to add
+   * @param params - Parameters including liquidity delta and amount limits
+   * @returns Transaction for adding liquidity
+   * @example
+   * const tx = await sdk.Position.createAddLiquidityPayload({
+   *   pool_id: poolId,
+   *   pos_id: positionId,
+   *   coinTypeA: "0x2::sui::SUI",
+   *   coinTypeB: "0x5d4b...::coin::COIN",
+   *   delta_liquidity: "1000000000",
+   *   max_amount_a: "1100000000",  // Max SUI to spend
+   *   max_amount_b: "1100000"      // Max COIN to spend
+   * });
    */
   async createAddLiquidityPayload(
     params: AddLiquidityParams,
@@ -686,11 +831,25 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Creates transaction to remove liquidity from a position
-   * Automatically collects fees and rewards before removal
-   * @param params - Liquidity removal parameters
-   * @param tx - Optional existing transaction to append to
-   * @returns Transaction object for removing liquidity
+   * Creates a transaction to remove liquidity from a position
+   * @param params - Parameters including liquidity amount to remove and minimum outputs
+   * @param tx - Optional existing transaction to extend
+   * @returns Transaction for removing liquidity
+   * @example
+   * // Remove 50% of liquidity
+   * const position = await sdk.Position.getPositionById(positionId);
+   * const halfLiquidity = new BN(position.liquidity).divn(2);
+   *
+   * const tx = await sdk.Position.removeLiquidityTransactionPayload({
+   *   pool_id: poolId,
+   *   pos_id: positionId,
+   *   coinTypeA: "0x2::sui::SUI",
+   *   coinTypeB: "0x5d4b...::coin::COIN",
+   *   delta_liquidity: halfLiquidity.toString(),
+   *   min_amount_a: "900000000",  // Minimum SUI to receive
+   *   min_amount_b: "4500000",    // Minimum COIN to receive
+   *   collect_fee: true           // Also collect pending fees
+   * });
    */
   async removeLiquidityTransactionPayload(params: RemoveLiquidityParams, tx?: Transaction): Promise<Transaction> {
     if (!checkValidSuiAddress(this.sdk.senderAddress)) {
@@ -732,11 +891,26 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Creates transaction to close a position completely
-   * Removes all liquidity and collects all fees/rewards
-   * @param params - Position closure parameters
-   * @param tx - Optional existing transaction to append to
-   * @returns Transaction object for closing position
+   * Creates a transaction to close a position (remove all liquidity)
+   * Position NFT is burned after closing
+   * @param params - Parameters including slippage tolerance
+   * @param tx - Optional existing transaction to extend
+   * @returns Transaction for closing position
+   * @example
+   * const tx = await sdk.Position.closePositionTransactionPayload({
+   *   pool_id: poolId,
+   *   pos_id: positionId,
+   *   coinTypeA: "0x2::sui::SUI",
+   *   coinTypeB: "0x5d4b...::coin::COIN",
+   *   min_amount_a: "950000000",  // Accept 5% slippage
+   *   min_amount_b: "4750000",
+   *   collect_fee: true,
+   *   rewarder_coin_types: [
+   *     "0x_reward_coin_1",
+   *     "0x_reward_coin_2",
+   *     "0x_reward_coin_3"
+   *   ]
+   * });
    */
   async closePositionTransactionPayload(params: ClosePositionParams, tx?: Transaction): Promise<Transaction> {
     if (!checkValidSuiAddress(this.sdk.senderAddress)) {
@@ -803,6 +977,27 @@ export class PositionModule implements IModule {
     return tx
   }
 
+  /**
+   * Locks a position until a specific timestamp
+   * Locked positions cannot be closed or have liquidity removed
+   * Useful for governance or vesting mechanisms
+   * @param pool - Pool object
+   * @param positionId - Position NFT ID
+   * @param untilTimestamp - Unix timestamp (seconds) when lock expires
+   * @param tx - Optional transaction to extend
+   * @returns Transaction for locking position
+   * @example
+   * const pool = await sdk.Pool.getPool(poolId);
+   * const oneWeekFromNow = Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60);
+   *
+   * const tx = await sdk.Position.lockPosition(
+   *   pool,
+   *   positionId,
+   *   oneWeekFromNow
+   * );
+   *
+   * console.log(`Position locked until: ${new Date(oneWeekFromNow * 1000)}`);
+   */
   public async lockPosition(pool: Pool, positionId: string, untilTimestamp: number, tx = new Transaction()) {
     const sender = this.sdk.senderAddress
 
@@ -822,28 +1017,67 @@ export class PositionModule implements IModule {
     return tx
   }
 
-  public async getLockPositionStatusById(positionId: string): Promise<[current_lock: number, current_timestamp: number, is_locked: boolean]> {
+  /**
+   * Gets lock status for a position by ID
+   * @param positionId - Position NFT ID
+   * @returns Tuple of [lockTimestamp, currentTimestamp, isLocked]
+   * @example
+   * const [lockTime, currentTime, isLocked] =
+   *   await sdk.Position.getLockPositionStatusById(positionId);
+   *
+   * if (isLocked) {
+   *   const unlockDate = new Date(lockTime * 1000);
+   *   console.log(`Locked until: ${unlockDate}`);
+   *   console.log(`Time remaining: ${lockTime - currentTime}s`);
+   * } else {
+   *   console.log('Position is unlocked');
+   * }
+   */
+  public async getLockPositionStatusById(
+    positionId: string
+  ): Promise<[current_lock: number, current_timestamp: number, is_locked: boolean]> {
     const position = await this.getPositionById(positionId)
-    const currentLock = Number(position.lock_until);
-    const currentTimestamp = Date.now();
+    const currentLock = Number(position.lock_until)
+    const currentTimestamp = Date.now()
 
     return [currentLock, currentTimestamp, currentLock > currentTimestamp]
   }
 
   public async getLockPositionStatus(position: Position): Promise<[current_lock: number, current_timestamp: number, is_locked: boolean]> {
-    const currentLock = Number(position.lock_until);
-    const currentTimestamp = Date.now();
+    const currentLock = Number(position.lock_until)
+    const currentTimestamp = Date.now()
 
     return [currentLock, currentTimestamp, currentLock > currentTimestamp]
   }
 
   /**
-   * Creates transaction to collect LP fees from a position
-   * @param params - Fee collection parameters
-   * @param tx - Optional existing transaction to append to
-   * @param inputCoinA - Optional pre-built coin A object
-   * @param inputCoinB - Optional pre-built coin B object
-   * @returns Transaction object for fee collection
+   * Creates a transaction to collect accumulated fees from a position
+   * Fees can be collected without affecting liquidity
+   * @param params - Parameters including pool and position info
+   * @param tx - Optional transaction to extend
+   * @returns Transaction for collecting fees
+   * @example
+   * const pool = await sdk.Pool.getPool(poolId);
+   *
+   * const collectTx = await sdk.Position.collectFeeTransactionPayload({
+   *   pool,
+   *   pos_id: positionId,
+   *   coinTypeA: pool.coinTypeA,
+   *   coinTypeB: pool.coinTypeB,
+   *   collect_fee: true
+   * });
+   *
+   * const result = await sdk.fullClient.signAndExecuteTransaction({
+   *   transaction: collectTx,
+   *   signer: keypair
+   * });
+   *
+   * // Check collected amounts from events
+   * const collectEvent = result.events?.find(
+   *   e => e.type.includes('CollectFeeEvent')
+   * );
+   * console.log(`Collected A: ${collectEvent?.parsedJson?.amount_a}`);
+   * console.log(`Collected B: ${collectEvent?.parsedJson?.amount_b}`);
    */
   async collectFeeTransactionPayload(
     params: CollectFeeParams,
@@ -934,11 +1168,28 @@ export class PositionModule implements IModule {
   }
 
   /**
-   * Simulates fee collection to calculate claimable amounts
-   * Uses devInspectTransactionBlock for gas-free calculation
-   * @param params - Fee collection parameters
-   * @returns Object containing fee amounts for both tokens
-   */
+ * Calculates pending fees for a position using local computation
+ * Faster than on-chain simulation but less accurate
+ * @param params - Pool and position parameters
+ * @returns Fee quote with amounts owed
+ * @example
+ * const pool = await sdk.Pool.getPool(poolId);
+ * const position = await sdk.Position.getPositionById(positionId);
+ * const ticks = await sdk.Pool.fetchTicksByRpc(pool.ticksHandle);
+ * 
+ * const tickLower = ticks.find(t => t.index === position.tick_lower_index);
+ * const tickUpper = ticks.find(t => t.index === position.tick_upper_index);
+ * 
+ * const fees = await sdk.Position.calculateFee({
+ *   pool,
+ *   position,
+ *   tickLower,
+ *   tickUpper
+ * });
+ * 
+ * console.log(`Pending fee A: ${fees.feeOwedA.toString()}`);
+ * console.log(`Pending fee B: ${fees.feeOwedB.toString()}`);
+ */
   async calculateFee(params: CollectFeeParams) {
     const paylod = await this.collectFeeTransactionPayload(params)
     if (!checkValidSuiAddress(this.sdk.senderAddress)) {

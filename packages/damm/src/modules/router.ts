@@ -173,9 +173,35 @@ function _pairSymbol(
 }
 
 /**
- * Router module for finding optimal swap paths in DAMM pools
- * Handles pathfinding, route optimization, and swap execution across multiple pools
- * Supports both single-hop and multi-hop swaps with TVL-based routing prioritization
+ * Router module for finding optimal multi-hop swap paths
+ * Analyzes liquidity across pools to find best execution routes
+ * Supports complex routing with intermediate tokens
+ * 
+ * @example
+ * // Find best route for SUI -> USDC swap
+ * await sdk.Router.loadGraphData(); // Load pool graph first
+ * 
+ * const route = await sdk.Router.getBestInternalRouter({
+ *   from: "0x2::sui::SUI",
+ *   target: "0x5d4b...::usdc::USDC",
+ *   amount: "1000000000", // 1 SUI
+ *   byAmountIn: true,
+ *   depth: 3  // Allow up to 3 hops
+ * });
+ * 
+ * if (route) {
+ *   console.log(`Best route: ${route.paths.map(p => p.coinType).join(' -> ')}`);
+ *   console.log(`Expected output: ${route.amountOut}`);
+ *   console.log(`Price impact: ${route.priceImpact}%`);
+ * }
+ * 
+ * @example
+ * // Execute multi-hop swap
+ * const swapTx = await sdk.Router.createSwapTransactionPayload({
+ *   paths: route.paths,
+ *   partner: null,
+ *   byAmountIn: true
+ * });
  */
 export class RouterModule implements IModule {
   readonly graph: Graph
@@ -258,10 +284,20 @@ export class RouterModule implements IModule {
   }
 
   /**
-   * Initializes the routing graph with coin and path data
-   * Must be called before finding optimal routes
-   * @param coinData - All available coins
-   * @param pathData - All available trading paths
+   * Loads pool and coin graph data for routing
+   * Must be called before using routing functions
+   * Caches data for performance
+   * @example
+   * // Load graph once at app startup
+   * await sdk.Router.loadGraphData();
+   * 
+   * // Now you can use routing
+   * const route = await sdk.Router.getBestInternalRouter({
+   *   from: "0x2::sui::SUI",
+   *   target: "0x5d4b...::usdc::USDC",
+   *   amount: "1000000000",
+   *   byAmountIn: true
+   * });
    */
   loadGraph(coinData: CoinProvider, pathData: PathProvider) {
     this.addCoinProvider(coinData)
@@ -374,16 +410,35 @@ export class RouterModule implements IModule {
   }
 
   /**
-   * Finds the optimal internal routing path between two coins
-   *
-   * @param fromCoin - Source coin type
-   * @param toCoin - Target coin type
-   * @param swapAmount - Amount to swap
-   * @param isFixedInput - Whether input amount is fixed
-   * @param slippagePoint - Price slippage tolerance
-   * @param partnerObjectId - Partner object identifier
-   * @param multiPoolParams - Parameters for fallback to multi-pool swap
-   * @returns Promise resolving to the best routing result or undefined
+   * Finds the optimal swap route between two tokens
+   * Analyzes all possible paths considering liquidity and fees
+   * @param params - Routing parameters including tokens and amount
+   * @returns Best route with expected output and path details, or null if no path found
+   * @example
+   * await sdk.Router.loadGraphData();
+   * 
+   * const route = await sdk.Router.getBestInternalRouter({
+   *   from: "0x2::sui::SUI",
+   *   target: "0x5d4b...::usdc::USDC",
+   *   amount: "1000000000",  // 1 SUI
+   *   byAmountIn: true,
+   *   depth: 3,              // Max 3 hops
+   *   splitCount: 1          // Single path (no split routing)
+   * });
+   * 
+   * if (!route) {
+   *   console.log('No route found');
+   *   return;
+   * }
+   * 
+   * console.log('Route found:');
+   * route.paths.forEach((path, i) => {
+   *   console.log(`  Hop ${i + 1}: ${path.coinType}`);
+   *   console.log(`    Pool: ${path.poolAddress}`);
+   *   console.log(`    Direction: ${path.a2b ? 'A->B' : 'B->A'}`);
+   * });
+   * console.log(`Total output: ${route.amountOut}`);
+   * console.log(`Price impact: ${route.priceImpact}%`);
    */
   async getBestInternalRouter(
     fromCoin: string,
@@ -742,10 +797,34 @@ export class RouterModule implements IModule {
   }
 
   /**
-   * Pre-calculates routing swap results for multiple parameter sets
-   * @param parameterSets - Array of router swap parameters to evaluate
-   * @returns Best swap result or null if none found
+   * Simulates multi-hop swaps across different parameter sets
+   * Useful for comparing different amounts or paths
+   * @param parameterSets - Array of routing parameters to test
+   * @returns Array of best routes for each parameter set
+   * @example
+   * await sdk.Router.loadGraphData();
+   * 
+   * const routes = await sdk.Router.preRouterSwapA2B2C([
+   *   {
+   *     from: "0x2::sui::SUI",
+   *     target: "0x5d4b...::usdc::USDC",
+   *     amount: "1000000000",  // 1 SUI
+   *     byAmountIn: true
+   *   },
+   *   {
+   *     from: "0x2::sui::SUI",
+   *     target: "0x5d4b...::usdc::USDC",
+   *     amount: "10000000000", // 10 SUI
+   *     byAmountIn: true
+   *   }
+   * ]);
+   * 
+   * routes.forEach((route, i) => {
+   *   console.log(`Route ${i + 1}:`);
+   *   console.log(`  Output: ${route?.amountOut ?? 'No route'}`);
+   * });
    */
+
   async preRouterSwapA2B2C(parameterSets: PreRouterSwapParams[]) {
     if (parameterSets.length === 0) {
       return null
@@ -873,8 +952,19 @@ export class RouterModule implements IModule {
   }
 
   /**
-   * Retrieves pool information with TVL data from API
-   * @returns Array of pools with their TVL information
+   * Gets all pools with their Total Value Locked (TVL)
+   * Useful for analytics and pool selection
+   * @returns Array of pools with TVL data
+   * @example
+   * const poolsWithTvl = await sdk.Router.getPoolWithTVL();
+   * 
+   * // Sort by TVL
+   * poolsWithTvl.sort((a, b) => b.tvl - a.tvl);
+   * 
+   * console.log('Top 10 pools by TVL:');
+   * poolsWithTvl.slice(0, 10).forEach(pool => {
+   *   console.log(`${pool.name}: $${pool.tvl.toLocaleString()}`);
+   * });
    */
   async getPoolWithTVL(): Promise<PoolWithTvl[]> {
     const poolTvlResults: PoolWithTvl[] = []

@@ -1,8 +1,8 @@
 {
-  "name": "@phoenix0x02/damm",
-  "version": "0.0.1-dev.16",
+  "name": "@ferra-labs/damm",
+  "version": "v1.0.0",
   "private": false,
-  "description": "SDK for concentrated liquidity market maker",
+  "description": "SDK for DAMM Ferra",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -37,7 +37,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/phoenix0x02/ferra-sdks.git",
+    "url": "https://github.com/Ferra-Labs/ferra-sdks.git",
     "directory": "packages/damm"
   },
   "publishConfig": {

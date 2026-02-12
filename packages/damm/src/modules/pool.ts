@@ -34,14 +34,7 @@ import {
 import { FerraDammSDK } from '../sdk'
 import { IModule } from '../interfaces/IModule'
 import { getObjectPreviousTransactionDigest } from '../utils/objects'
-import {
-  DammpoolsError,
-  ConfigErrorCode,
-  PartnerErrorCode,
-  PoolErrorCode,
-  PositionErrorCode,
-  UtilsErrorCode,
-} from '../errors/errors'
+import { DammpoolsError, ConfigErrorCode, PartnerErrorCode, PoolErrorCode, PositionErrorCode, UtilsErrorCode } from '../errors/errors'
 import { RpcModule } from './rpc'
 import { inspect } from 'util'
 
@@ -86,8 +79,37 @@ export type FeeTier = {
 }
 
 /**
- * Pool module for interacting with DAMM pools
- * Provides functionality for pool creation, liquidity management, and data retrieval
+ * Pool module for comprehensive DAMM pool management
+ * Handles pool creation, data retrieval, liquidity operations, and tick management
+ * Includes caching mechanisms for optimal performance
+ *
+ * @example
+ * // Get pool information
+ * const pool = await sdk.Pool.getPool('0x_pool_address');
+ * console.log(`Liquidity: ${pool.liquidity}`);
+ * console.log(`Current tick: ${pool.currentTickIndex}`);
+ * console.log(`Fee rate: ${pool.feeRate / 10000000}%`);
+ *
+ * @example
+ * // Fetch all ticks for a pool
+ * const ticks = await sdk.Pool.fetchTicksByRpc('0x_pool_address');
+ * console.log(`Found ${ticks.length} initialized ticks`);
+ *
+ * @example
+ * // Create a new pool with initial liquidity
+ * const createPoolTx = await sdk.Pool.createPoolTransactionPayload({
+ *   coinTypeA: "0x2::sui::SUI",
+ *   coinTypeB: "0x5d4b...::coin::COIN",
+ *   tick_spacing: 60,
+ *   initialize_sqrt_price: "79228162514264337593543950336", // 1:1 price
+ *   uri: "https://example.com/pool-metadata.json",
+ *   amount_a: 1000000000, // 1 SUI
+ *   amount_b: 1000000,    // 1 COIN
+ *   fix_amount_a: true,
+ *   tick_lower: -120,
+ *   tick_upper: 120,
+ *   slippage: 0.05
+ * });
  */
 export class PoolModule implements IModule {
   protected _sdk: FerraDammSDK
@@ -101,8 +123,23 @@ export class PoolModule implements IModule {
     return this._sdk
   }
 
+  /**
+   * Retrieves available base fee tiers and their parameters
+   * Returns all supported fee configurations including dynamic fee settings
+   * @returns Array of fee tier configurations with tick spacing and fee parameters
+   * @throws {DammpoolsError} If config fetch fails
+   * @example
+   * const feeTiers = await sdk.Pool.getBaseFeesAvailable();
+   * feeTiers.forEach(tier => {
+   *   console.log(`Tick spacing: ${tier.tick_spacing}`);
+   *   console.log(`Fee rate: ${tier.fee_rate / 10000000}%`);
+   *   console.log(`Dynamic fee enabled: ${tier.dynamic_fee !== null}`);
+   * });
+   */
   async getBaseFeesAvailable() {
-    const { config: { global_config_id } } = this.sdk.sdkOptions.damm_pool
+    const {
+      config: { global_config_id },
+    } = this.sdk.sdkOptions.damm_pool
 
     const data = await this.sdk.fullClient.getObject({ id: global_config_id, options: { showContent: true } })
     if (data.data.content.dataType === 'package') {
@@ -110,7 +147,7 @@ export class PoolModule implements IModule {
     }
     const contents = data.data.content.fields as Record<string, any>
 
-    return contents.fee_tiers?.fields?.contents.map(v => ({
+    return contents.fee_tiers?.fields?.contents.map((v) => ({
       tick_spacing: v.fields.key,
       dynamic_fee: v.fields.value.fields.dynamic_fee.fields,
       fee_rate: Number(v.fields.value.fields.fee_rate),
@@ -122,10 +159,19 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * Retrieves all positions associated with a position handle
-   * @param positionHandle - The position collection handle ID
-   * @param paginationArgs - Pagination parameters (default: 'all' to fetch all positions)
-   * @returns Paginated list of positions with navigation metadata
+   * Gets all positions for a specific pool
+   * Fetches position data from the pool's position manager
+   * @param positionHandle - Position manager handle ID from pool object
+   * @param paginationArgs - Pagination configuration or 'all' to fetch everything
+   * @returns Paginated list of positions
+   * @throws {DammpoolsError} If position handle is invalid
+   * @example
+   * const pool = await sdk.Pool.getPool(poolId);
+   * const positions = await sdk.Pool.getPositionList(
+   *   pool.positionManager.positionsHandle,
+   *   { cursor: null, limit: 50 }
+   * );
+   * console.log(`Found ${positions.data.length} positions`);
    */
   async getPositionList(positionHandle: string, paginationArgs: PaginationArgs = 'all'): Promise<DataPage<Position>> {
     const dataPage: DataPage<Position> = {
@@ -154,13 +200,26 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * Retrieves immutable pool data (address, tick spacing, coin types)
-   * Uses cached data to minimize RPC calls
-   * @param assignPoolIDs - Specific pool IDs to retrieve (empty array for all pools)
+   * Fetches pool immutable data (type, addresses, spacing) for multiple pools
+   * Immutables don't change after pool creation - safe to cache long-term
+   * @param assignPoolIDs - Specific pool IDs to fetch (empty = all pools)
    * @param offset - Starting index for pagination
    * @param limit - Maximum number of pools to return
-   * @param forceRefresh - Force cache refresh if true
+   * @param forceRefresh - Bypass cache and fetch fresh data
    * @returns Array of pool immutable data
+   * @example
+   * // Get all pools
+   * const allPools = await sdk.Pool.getPoolImmutables();
+   *
+   * // Get specific pools
+   * const specificPools = await sdk.Pool.getPoolImmutables([
+   *   '0x_pool1',
+   *   '0x_pool2'
+   * ]);
+   *
+   * specificPools.forEach(pool => {
+   *   console.log(`${pool.name}: ${pool.coin_type_a} / ${pool.coin_type_b}`);
+   * });
    */
   async getPoolImmutables(assignPoolIDs: string[] = [], offset = 0, limit = 100, forceRefresh = false): Promise<PoolImmutables[]> {
     const { package_id } = this._sdk.sdkOptions.damm_pool
@@ -206,11 +265,22 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * Retrieves complete pool data including current state
-   * @param assignPools - Specific pool IDs to retrieve (empty array for all pools)
+   * Fetches complete pool state including current liquidity, price, and fees
+   * This is the main method for getting up-to-date pool data
+   * @param assignPools - Specific pool IDs to fetch (empty = all pools)
    * @param offset - Starting index for pagination
    * @param limit - Maximum number of pools to return
-   * @returns Array of complete pool objects with current state
+   * @returns Array of complete pool objects
+   * @example
+   * const pools = await sdk.Pool.getPools(['0x_pool_id']);
+   * const pool = pools[0];
+   *
+   * console.log(`Current sqrt price: ${pool.currentSqrtPrice}`);
+   * console.log(`Current tick: ${pool.currentTickIndex}`);
+   * console.log(`Total liquidity: ${pool.liquidity}`);
+   * console.log(`Coin A amount: ${pool.coinAmountA}`);
+   * console.log(`Coin B amount: ${pool.coinAmountB}`);
+   * console.log(`Fee rate: ${pool.feeRate / 10000000}%`);
    */
   async getPools(assignPools: string[] = [], offset = 0, limit = 100): Promise<Pool[]> {
     const allPool: Pool[] = []
@@ -236,7 +306,7 @@ export class PoolModule implements IModule {
         )
       }
       // console.log('suiObj', inspect(suiObj.data.content.fields, { depth: null, colors: true }));
-      
+
       const pool = buildPool(suiObj)
       allPool.push(pool)
       const cacheKey = `${pool.poolAddress}_getPoolObject`
@@ -335,10 +405,24 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * Retrieves a single pool by its object ID
-   * @param poolID - The pool's object ID
-   * @param forceRefresh - Force cache refresh if true (default: true for real-time data)
+   * Gets a single pool's complete state by ID
+   * Preferred method for fetching individual pool data - includes caching
+   * @param poolID - Pool object ID (0x-prefixed address)
+   * @param forceRefresh - Skip cache and fetch fresh data (default: true)
    * @returns Complete pool object with current state
+   * @throws {DammpoolsError} If pool doesn't exist or fetch fails (PoolErrorCode.InvalidPoolObject)
+   * @example
+   * const pool = await sdk.Pool.getPool('0x_pool_address');
+   *
+   * // Check if pool is paused
+   * if (pool.isPause) {
+   *   console.log('Pool is currently paused');
+   * }
+   *
+   * // Calculate current price from sqrt price
+   * const sqrtPrice = new BN(pool.currentSqrtPrice);
+   * const price = TickMath.sqrtPriceX64ToPrice(sqrtPrice, 9, 6);
+   * console.log(`Current price: ${price.toString()} COIN per SUI`);
    */
   async getPool(poolID: string, forceRefresh = true): Promise<Pool> {
     const cacheKey = `${poolID}_getPoolObject`
@@ -366,11 +450,36 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * @deprecated Use createPoolTransactionPayload instead
-   * Creates a single pool with initial liquidity position
-   * Automatically sorts coin types according to protocol requirements
-   * @param params - Pool creation and liquidity parameters
-   * @returns Transaction object for pool creation and liquidity addition
+   * Creates a transaction to instantiate a new pool with initial liquidity
+   * Automatically sorts coins and validates parameters
+   * @param params - Pool creation parameters including coins, fee tier, and initial position
+   * @returns Transaction ready for signing and execution
+   * @throws {DammpoolsError} If coin types are invalid or amounts insufficient
+   * @example
+   * const tx = await sdk.Pool.createPoolTransactionPayload({
+   *   coinTypeA: "0x2::sui::SUI",
+   *   coinTypeB: "0x5d4b...::coin::COIN",
+   *   tick_spacing: 60,  // Standard 0.3% fee tier
+   *   initialize_sqrt_price: "79228162514264337593543950336", // 1:1 price
+   *   uri: "https://ferra.xyz/pool-metadata.json",
+   *   amount_a: 10_000_000_000, // 10 SUI
+   *   amount_b: 10_000_000,     // 10 COIN
+   *   fix_amount_a: true,
+   *   tick_lower: -600,  // Wide range
+   *   tick_upper: 600,
+   *   slippage: 0.05
+   * });
+   *
+   * const result = await sdk.fullClient.signAndExecuteTransaction({
+   *   transaction: tx,
+   *   signer: keypair
+   * });
+   *
+   * // Extract pool ID from events
+   * const poolCreatedEvent = result.events?.find(
+   *   e => e.type.includes('::PoolCreatedEvent')
+   * );
+   * const poolId = poolCreatedEvent?.parsedJson?.pool_id;
    */
   async creatPoolTransactionPayload(params: CreatePoolAddLiquidityParams): Promise<Transaction> {
     // Ensure coin types follow protocol ordering rules
@@ -407,10 +516,15 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * Retrieves DAMM protocol configuration from genesis transaction
-   * Contains global config, pools collection, vault, and admin capability IDs
-   * @param forceRefresh - Force cache refresh if true
-   * @returns DAMM protocol configuration object
+   * Gets DAMM global configuration including registry IDs and settings
+   * Configuration is cached for performance
+   * @param forceRefresh - Bypass cache and fetch fresh config
+   * @returns Global DAMM configuration object
+   * @example
+   * const config = await sdk.Pool.getDammConfigs();
+   * console.log(`Global config ID: ${config.global_config_id}`);
+   * console.log(`Pools registry: ${config.pools_id}`);
+   * console.log(`Rewarder vault: ${config.global_rewarder_vault_id}`);
    */
   async getDammConfigs(forceRefresh = false): Promise<DammConfig> {
     const { package_id } = this._sdk.sdkOptions.damm_pool
@@ -505,13 +619,23 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * Retrieves transaction history for a specific pool
-   * Supports custom RPC endpoints for different data sources
-   * @param poolId - Pool object ID
-   * @param paginationArgs - Pagination parameters
-   * @param order - Sort order (default: 'descending')
-   * @param fullRpcUrl - Optional custom RPC endpoint
-   * @returns Paginated list of pool transactions
+   * Gets transaction history for a specific pool
+   * Returns swaps, adds/removes liquidity, fee collections
+   * @param pool_id - Pool object ID
+   * @param limit - Maximum transactions to return (default: 100)
+   * @param offset - Starting offset for pagination
+   * @returns Array of pool transaction info
+   * @example
+   * const txList = await sdk.Pool.getPoolTransactionList({
+   *   pool_id: poolId,
+   *   limit: 50,
+   *   offset: 0
+   * });
+   *
+   * txList.forEach(tx => {
+   *   const type = tx.type.split('::').pop();
+   *   console.log(`${type}: ${tx.tx}`);
+   * });
    */
   async getPoolTransactionList({
     poolId,
@@ -564,8 +688,6 @@ export class PoolModule implements IModule {
     return data
   }
 
-
-
   /**
    * Internal method for creating pool with initial liquidity
    * Uses integrate contract to handle pool creation and liquidity in single transaction
@@ -580,8 +702,8 @@ export class PoolModule implements IModule {
       )
     }
 
-    params.tick_lower ??= -443636;
-    params.tick_upper ??= 443636;
+    params.tick_lower ??= -443636
+    params.tick_upper ??= 443636
 
     const tx = new Transaction()
     tx.setSender(this.sdk.senderAddress)
@@ -624,12 +746,20 @@ export class PoolModule implements IModule {
     return tx
   }
 
-
   /**
-   * Fetches all tick data for a pool
-   * Retrieves tick liquidity data in batches for efficiency
-   * @param params - Pool and coin type parameters
-   * @returns Complete array of tick data
+   * Fetches all initialized ticks for a pool from on-chain events
+   * More comprehensive but slower than fetchTicksByRpc
+   * Use this when you need complete tick history including deleted ticks
+   * @param params - Fetch parameters with pool ID
+   * @returns Array of all tick data from pool history
+   * @example
+   * const ticks = await sdk.Pool.fetchTicks({ pool_id: poolId });
+   * console.log(`Total ticks: ${ticks.length}`);
+   *
+   * // Find ticks in specific range
+   * const ticksInRange = ticks.filter(
+   *   t => t.index >= -120 && t.index <= 120
+   * );
    */
   async fetchTicks(params: FetchParams): Promise<TickData[]> {
     let ticks: TickData[] = []
@@ -710,11 +840,23 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * Fetches reward information for all positions in a pool
-   * Retrieves position rewards in batches for efficiency
-   * @param params - Pool and coin type parameters
-   * @returns Complete array of position rewards
+   * Fetches position rewards from events for multiple positions
+   * Useful for displaying historical reward claims
+   * @param params - Fetch parameters with pool ID
+   * @returns Array of position reward data
+   * @example
+   * const rewards = await sdk.Pool.fetchPositionRewardList({
+   *   pool_id: poolId
+   * });
+   *
+   * rewards.forEach(reward => {
+   *   console.log(`Position: ${reward.pos_object_id}`);
+   *   console.log(`Reward 0: ${reward.reward_amount_owed_0}`);
+   *   console.log(`Reward 1: ${reward.reward_amount_owed_1}`);
+   *   console.log(`Reward 2: ${reward.reward_amount_owed_2}`);
+   * });
    */
+
   async fetchPositionRewardList(params: FetchParams): Promise<PositionReward[]> {
     const { integrate, simulationAccount } = this.sdk.sdkOptions
     const allPosition: PositionReward[] = []
@@ -777,10 +919,22 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * Fetches all ticks directly from RPC (alternative to simulation method)
-   * Useful when simulation is not available or for debugging
-   * @param tickHandle - Pool's tick handle from pool object
-   * @returns Complete array of tick data
+   * Fetches current tick state directly from pool's tick manager (RPC)
+   * Faster than event-based fetch, returns only currently active ticks
+   * Recommended for most use cases
+   * @param tickHandle - Tick manager handle ID from pool object
+   * @returns Array of currently active tick data
+   * @example
+   * const pool = await sdk.Pool.getPool(poolId);
+   * const ticks = await sdk.Pool.fetchTicksByRpc(pool.ticksHandle);
+   *
+   * // Sort ticks by index for swap simulation
+   * ticks.sort((a, b) => a.index - b.index);
+   *
+   * // Find nearest tick below current
+   * const nearestBelow = ticks
+   *   .filter(t => t.index < pool.currentTickIndex)
+   *   .sort((a, b) => b.index - a.index)[0];
    */
   async fetchTicksByRpc(tickHandle: string): Promise<TickData[]> {
     let allTickData: TickData[] = []
@@ -837,11 +991,24 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * Retrieves tick data for a specific tick index
-   * Uses dynamic field lookup for efficient single tick retrieval
-   * @param tickHandle - Pool's tick handle
-   * @param tickIndex - The tick index to retrieve
-   * @returns Tick data for the specified index
+   * Gets tick data for a specific tick index
+   * Returns null if tick is not initialized
+   * @param tickHandle - Tick manager handle ID
+   * @param tickIndex - Specific tick index to fetch
+   * @returns Tick data or throws if tick doesn't exist
+   * @throws {DammpoolsError} If tick is not initialized
+   * @example
+   * const pool = await sdk.Pool.getPool(poolId);
+   *
+   * try {
+   *   const tick = await sdk.Pool.getTickDataByIndex(
+   *     pool.ticksHandle,
+   *     -120
+   *   );
+   *   console.log(`Liquidity at tick -120: ${tick.liquidityGross.toString()}`);
+   * } catch (error) {
+   *   console.log('Tick -120 is not initialized');
+   * }
    */
   async getTickDataByIndex(tickHandle: string, tickIndex: number): Promise<TickData> {
     const name = { type: 'u64', value: asUintN(BigInt(tickScore(tickIndex).toString())).toString() }
@@ -937,11 +1104,24 @@ export class PoolModule implements IModule {
   }
 
   /**
-   * Creates transaction to claim partner referral fees
+   * Claims partner referral fees accumulated for a partner
+   * Requires partner capability NFT
    * @param partnerCap - Partner capability object ID
-   * @param partner - Partner object ID
-   * @param coinType - Coin type to claim
-   * @returns Transaction object for claiming fees
+   * @param partner - Partner address
+   * @param coinType - Type of coin to claim fees in
+   * @returns Transaction for claiming partner fees
+   * @throws {DammpoolsError} If partner not found or invalid (PartnerErrorCode.NotFoundPartnerObject)
+   * @example
+   * const tx = await sdk.Pool.claimPartnerRefFeePayload(
+   *   '0x_partner_cap_id',
+   *   '0x_partner_address',
+   *   '0x2::sui::SUI'
+   * );
+   *
+   * const result = await sdk.fullClient.signAndExecuteTransaction({
+   *   transaction: tx,
+   *   signer: partnerKeypair
+   * });
    */
   async claimPartnerRefFeePayload(partnerCap: string, partner: string, coinType: string): Promise<Transaction> {
     const tx = new Transaction()

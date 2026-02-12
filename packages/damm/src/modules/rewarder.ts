@@ -34,8 +34,41 @@ export type PosRewarderResult = {
 }
 
 /**
- * Rewarder module for managing position rewards in DAMM pools
- * Handles reward calculations, collection, and distribution for liquidity providers
+ * Rewarder module for managing pool incentive rewards
+ * Handles reward calculations, claiming, and emissions tracking
+ * Supports up to 3 simultaneous reward tokens per pool
+ *
+ * @example
+ * // Check daily emissions for a pool
+ * const emissions = await sdk.Rewarder.emissionsEveryDay(poolId);
+ * console.log(`Rewarder 0: ${emissions[0]} tokens/day`);
+ * console.log(`Rewarder 1: ${emissions[1]} tokens/day`);
+ * console.log(`Rewarder 2: ${emissions[2]} tokens/day`);
+ *
+ * @example
+ * // Fetch pending rewards for a position
+ * const pool = await sdk.Pool.getPool(poolId);
+ * const rewards = await sdk.Rewarder.fetchPositionRewarders(pool, positionId);
+ *
+ * rewards.forEach((reward, index) => {
+ *   const rewarderInfo = pool.rewarderInfos[index];
+ *   console.log(`Reward ${index} (${rewarderInfo.coinAddress}):`);
+ *   console.log(`  Owed: ${reward.amount_owed}`);
+ * });
+ *
+ * @example
+ * // Claim all rewards from a position
+ * const claimTx = await sdk.Rewarder.collectRewarderTransactionPayload({
+ *   pool_id: poolId,
+ *   pos_id: positionId,
+ *   rewarder_coin_types: [
+ *     pool.rewarderInfos[0].coinAddress,
+ *     pool.rewarderInfos[1].coinAddress,
+ *     pool.rewarderInfos[2].coinAddress
+ *   ],
+ *   coinTypeA: pool.coinTypeA,
+ *   coinTypeB: pool.coinTypeB
+ * });
  */
 export class RewarderModule implements IModule {
   protected _sdk: FerraDammSDK
@@ -51,9 +84,18 @@ export class RewarderModule implements IModule {
   }
 
   /**
-   * Calculates daily emissions for all rewarders in a pool
-   * @param poolID - The pool object ID
-   * @returns Array of daily emissions for each rewarder with coin addresses
+   * Calculates daily emission rates for all rewarders in a pool
+   * Emissions are continuous, this converts to daily amounts
+   * @param poolID - Pool object ID
+   * @returns Array of daily emission amounts [rewarder0, rewarder1, rewarder2]
+   * @example
+   * const emissions = await sdk.Rewarder.emissionsEveryDay(poolId);
+   * const pool = await sdk.Pool.getPool(poolId);
+   *
+   * pool.rewarderInfos.forEach((info, i) => {
+   *   const dailyEmission = emissions[i];
+   *   console.log(`${info.coinAddress}: ${dailyEmission} per day`);
+   * });
    */
   async emissionsEveryDay(poolID: string) {
     const currentPool: Pool = await this.sdk.Pool.getPool(poolID)
@@ -113,10 +155,23 @@ export class RewarderModule implements IModule {
   }
 
   /**
-   * Batch fetches reward amounts for multiple positions
-   * More efficient than calling fetchPositionRewarders individually
-   * @param positionIDs - Array of position object IDs
-   * @returns Map of position ID to reward amounts
+   * Batch fetches pending rewards for multiple positions
+   * More efficient than calling fetchPositionRewarders multiple times
+   * @param positionIDs - Array of position NFT IDs
+   * @returns Map of position ID to array of reward amounts
+   * @example
+   * const rewardMap = await sdk.Rewarder.batchFetchPositionRewarders([
+   *   '0x_pos1',
+   *   '0x_pos2',
+   *   '0x_pos3'
+   * ]);
+   *
+   * for (const [posId, rewards] of Object.entries(rewardMap)) {
+   *   console.log(`Position ${posId}:`);
+   *   rewards.forEach((reward, i) => {
+   *     console.log(`  Reward ${i}: ${reward.amount_owed}`);
+   *   });
+   * }
    */
   async batchFetchPositionRewarders(positionIDs: string[]): Promise<Record<string, RewarderAmountOwed[]>> {
     const posRewardParamsList: FetchPosRewardParams[] = []
@@ -147,10 +202,24 @@ export class RewarderModule implements IModule {
   }
 
   /**
-   * Fetches reward amounts for a single position
-   * @param pool - Pool object
-   * @param positionId - Position object ID
-   * @returns Array of reward amounts for each rewarder
+   * Fetches pending reward amounts for a specific position
+   * Uses on-chain data for accurate calculations
+   * @param pool - Pool object containing rewarder info
+   * @param positionId - Position NFT ID
+   * @returns Array of reward amounts owed
+   * @example
+   * const pool = await sdk.Pool.getPool(poolId);
+   * const rewards = await sdk.Rewarder.fetchPositionRewarders(pool, positionId);
+   *
+   * // Display rewards with token info
+   * for (let i = 0; i < rewards.length; i++) {
+   *   const rewarder = pool.rewarderInfos[i];
+   *   const reward = rewards[i];
+   *   console.log(`Rewarder ${i}:`);
+   *   console.log(`  Token: ${rewarder.coinAddress}`);
+   *   console.log(`  Owed: ${reward.amount_owed}`);
+   *   console.log(`  Growth inside: ${reward.growth_inside}`);
+   * }
    */
   async fetchPositionRewarders(pool: Pool, positionId: string): Promise<RewarderAmountOwed[]> {
     const param = {
@@ -167,10 +236,21 @@ export class RewarderModule implements IModule {
   }
 
   /**
-   * @deprecated Use Position.batchFetchPositionFees() instead
-   * Batch fetches fee amounts for multiple positions
-   * @param positionIDs - Array of position object IDs
-   * @returns Map of position ID to fee amounts
+   * Fetches both fees and rewards for multiple positions
+   * Convenience method that combines fee and reward queries
+   * @param positionIDs - Array of position NFT IDs
+   * @returns Map of position ID to fee quote
+   * @example
+   * const feeMap = await sdk.Rewarder.batchFetchPositionFees([
+   *   '0x_pos1',
+   *   '0x_pos2'
+   * ]);
+   *
+   * for (const [posId, fees] of Object.entries(feeMap)) {
+   *   console.log(`Position ${posId}:`);
+   *   console.log(`  Fee A: ${fees.feeOwedA.toString()}`);
+   *   console.log(`  Fee B: ${fees.feeOwedB.toString()}`);
+   * }
    */
   async batchFetchPositionFees(positionIDs: string[]): Promise<Record<string, CollectFeesQuote>> {
     const posFeeParamsList: FetchPosFeeParams[] = []
@@ -200,10 +280,25 @@ export class RewarderModule implements IModule {
   }
 
   /**
-   * Simulates fee collection for multiple positions
-   * Uses devInspectTransactionBlock for gas-free calculation
-   * @param params - Array of position fee parameters
-   * @returns Array of fee quotes for each position
+   * Fetches pending fee amounts for multiple positions
+   * Uses on-chain simulation for accurate results
+   * @param params - Array of position and pool parameters
+   * @returns Array of fee quotes
+   * @example
+   * const fees = await sdk.Rewarder.fetchPosFeeAmount([
+   *   {
+   *     pool_id: poolId1,
+   *     pos_id: posId1,
+   *     coinTypeA: "0x2::sui::SUI",
+   *     coinTypeB: "0x5d4b...::coin::COIN"
+   *   }
+   * ]);
+   *
+   * fees.forEach(fee => {
+   *   console.log(`Fees for ${fee.position_id}:`);
+   *   console.log(`  A: ${fee.feeOwedA.toString()}`);
+   *   console.log(`  B: ${fee.feeOwedB.toString()}`);
+   * });
    */
   async fetchPosFeeAmount(params: FetchPosFeeParams[]): Promise<CollectFeesQuote[]> {
     const { damm_pool, integrate, simulationAccount } = this.sdk.sdkOptions
@@ -253,10 +348,27 @@ export class RewarderModule implements IModule {
   }
 
   /**
-   * Simulates reward collection for multiple positions
-   * Main method for fetching position rewards efficiently
-   * @param params - Array of position reward parameters
-   * @returns Array of reward results for each position
+   * Fetches pending reward amounts for multiple positions
+   * Uses on-chain simulation for accurate calculations
+   * @param params - Array of position and pool parameters
+   * @returns Array of reward amount quotes
+   * @example
+   * const pool = await sdk.Pool.getPool(poolId);
+   *
+   * const rewards = await sdk.Rewarder.fetchPosRewardersAmount([
+   *   {
+   *     pool_id: poolId,
+   *     pos_id: posId1,
+   *     coinTypeA: pool.coinTypeA,
+   *     coinTypeB: pool.coinTypeB,
+   *     rewarder_coin_types: pool.rewarderInfos.map(r => r.coinAddress)
+   *   }
+   * ]);
+   *
+   * rewards.forEach(reward => {
+   *   console.log(`Position: ${reward.pos_object_id}`);
+   *   console.log(`Rewards: ${reward.rewarder_amounts}`);
+   * });
    */
   async fetchPosRewardersAmount(params: FetchPosRewardParams[]) {
     const { damm_pool, integrate, simulationAccount } = this.sdk.sdkOptions
@@ -334,10 +446,21 @@ export class RewarderModule implements IModule {
   }
 
   /**
-   * Calculates total rewards for all positions owned by an account in a pool
-   * @param account - Owner's address
+   * Fetches total accumulated rewards for an account in a specific pool
+   * Aggregates rewards across all positions in the pool
+   * @param account - Wallet address
    * @param poolObjectId - Pool object ID
-   * @returns Array of total reward amounts for each rewarder or null
+   * @returns Total reward amounts by token
+   * @example
+   * const poolRewards = await sdk.Rewarder.fetchPoolRewardersAmount(
+   *   walletAddress,
+   *   poolId
+   * );
+   *
+   * console.log('Total pool rewards for account:');
+   * poolRewards.forEach((amount, index) => {
+   *   console.log(`  Rewarder ${index}: ${amount}`);
+   * });
    */
   async fetchPoolRewardersAmount(account: string, poolObjectId: string) {
     const pool: Pool = await this.sdk.Pool.getPool(poolObjectId)
@@ -392,9 +515,27 @@ export class RewarderModule implements IModule {
   }
 
   /**
-   * Creates transaction to collect rewards from a position
-   * @param params - Collection parameters
-   * @returns Transaction object for reward collection
+   * Creates a transaction to collect rewards from a position
+   * Can optionally collect fees at the same time
+   * @param params - Parameters including reward coin types
+   * @param tx - Optional transaction to extend
+   * @returns Transaction for collecting rewards
+   * @example
+   * const pool = await sdk.Pool.getPool(poolId);
+   *
+   * const claimTx = await sdk.Rewarder.collectRewarderTransactionPayload({
+   *   pool_id: poolId,
+   *   pos_id: positionId,
+   *   rewarder_coin_types: pool.rewarderInfos.map(r => r.coinAddress),
+   *   coinTypeA: pool.coinTypeA,
+   *   coinTypeB: pool.coinTypeB,
+   *   collect_fee: true  // Also collect trading fees
+   * });
+   *
+   * const result = await sdk.fullClient.signAndExecuteTransaction({
+   *   transaction: claimTx,
+   *   signer: keypair
+   * });
    */
   async collectRewarderTransactionPayload(params: CollectRewarderParams, tx?: Transaction): Promise<Transaction> {
     if (!checkValidSuiAddress(this.sdk.senderAddress)) {
@@ -411,13 +552,36 @@ export class RewarderModule implements IModule {
   }
 
   /**
-   * Creates batch transaction to collect rewards from multiple positions
-   * Optimizes coin object usage across multiple collections
-   * @param params - Array of collection parameters
-   * @param tx - Optional existing transaction to append to
-   * @param inputCoinA - Optional pre-built coin A object
-   * @param inputCoinB - Optional pre-built coin B object
-   * @returns Transaction object for batch reward collection
+   * Creates a transaction to batch collect rewards from multiple positions
+   * More gas efficient than individual collection transactions
+   * @param paramsList - Array of reward collection parameters
+   * @param allCoinAsset - Available coin assets for the wallet
+   * @returns Transaction for batch reward collection
+   * @example
+   * const pool = await sdk.Pool.getPool(poolId);
+   * const coinAssets = await sdk.getOwnerCoinAssets(walletAddress);
+   *
+   * const batchTx = await sdk.Rewarder.batchCollectRewardePayload(
+   *   [
+   *     {
+   *       pool_id: poolId,
+   *       pos_id: posId1,
+   *       rewarder_coin_types: pool.rewarderInfos.map(r => r.coinAddress),
+   *       coinTypeA: pool.coinTypeA,
+   *       coinTypeB: pool.coinTypeB,
+   *       collect_fee: true
+   *     },
+   *     {
+   *       pool_id: poolId,
+   *       pos_id: posId2,
+   *       rewarder_coin_types: pool.rewarderInfos.map(r => r.coinAddress),
+   *       coinTypeA: pool.coinTypeA,
+   *       coinTypeB: pool.coinTypeB,
+   *       collect_fee: true
+   *     }
+   *   ],
+   *   coinAssets
+   * );
    */
   async batchCollectRewardePayload(
     params: CollectRewarderParams[],

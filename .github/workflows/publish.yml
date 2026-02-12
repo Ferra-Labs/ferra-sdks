@@ -68,6 +68,20 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Publish DAMM SDK to npmjs
+        id: publish-damm
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
+        continue-on-error: true
+        run: |
+          cd packages/damm
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            npm publish --access public --tag latest
+          else
+            npm publish --access public --tag beta
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Publish Aggregator SDK to npmjs
         id: publish-aggregator
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/beta'
@@ -118,6 +132,7 @@ jobs:
           echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| CLMM | ${{ steps.publish-clmm.outcome }} |" >> $GITHUB_STEP_SUMMARY
           echo "| DLMM | ${{ steps.publish-dlmm.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| DAMM | ${{ steps.publish-damm.outcome }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Aggregator | ${{ steps.publish-aggregator.outcome }} |" >> $GITHUB_STEP_SUMMARY
           echo "| DCA | ${{ steps.publish-dca.outcome }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Limit Order | ${{ steps.publish-limit.outcome }} |" >> $GITHUB_STEP_SUMMARY

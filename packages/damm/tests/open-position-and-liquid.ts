@@ -72,10 +72,10 @@ async function main() {
     slippage: 0.05,
     tick_lower: tick_lower,
     tick_upper: tick_upper,
-    pool_id: '0xdca1d6eb15b9365cb5db01cee318e64f03ad6d400e6a6065cc8090b500419145',
-    pos_id: '',
+    pool_id: '0xa0ea252e0e98c31c5f1ec768dd74e6adf154a7b0fb09a1b502ab8831c561f9e3',
+    pos_id: '0x3fa82e4e0bc1fcdf951c8149a1f6e01c990f7bf191dc60f5da1e0650145d8f95',
     rewarder_coin_types: [],
-    is_open: true,
+    is_open: false,
     collect_fee: true
   })
 

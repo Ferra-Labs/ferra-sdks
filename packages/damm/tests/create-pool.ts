@@ -28,9 +28,7 @@ async function main() {
 
   const pools = await sdk.Pool.getPools();
   console.log('pools', inspect(pools, { depth: null, colors: true }));
-  if (pools) {
-    return;
-  }
+
   const fees = await sdk.Pool.getBaseFeesAvailable();
   console.log('pools', inspect(fees, { depth: null, colors: true }));
 
@@ -116,8 +114,9 @@ async function main() {
       is_quote_y: false,
     })
 
-  const transferTxn = await sdk.fullClient.dryRunTransactionBlock({
-    transactionBlock: await creatPoolTransactionPayload.build({ client: sdk.fullClient })
+  const transferTxn = await sdk.fullClient.signAndExecuteTransaction({
+    transaction: await creatPoolTransactionPayload.build({ client: sdk.fullClient }),
+    signer: keypair
   })
   console.log('doCreatPool: ', transferTxn)
 }

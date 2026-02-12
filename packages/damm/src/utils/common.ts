@@ -143,7 +143,8 @@ export function buildPool(objects: SuiObjectResponse): Pool {
       emissionsEveryDay,
     })
   })
-
+  console.log('???????', getObjectId(objects));
+  
   const pool: Pool = {
     poolAddress: getObjectId(objects),
     poolType: type,
@@ -151,12 +152,14 @@ export function buildPool(objects: SuiObjectResponse): Pool {
     coinTypeB: formatType.type_arguments[1],
     coinAmountA: fields.coin_a,
     coinAmountB: fields.coin_b,
+    isQuoteY: Boolean(fields.is_quote_y),
+    collectFeeMode: Number(asIntN(BigInt(fields.collect_fee_mode))),
     parameters: {
       idReference: Number(asIntN(BigInt(fields.parameters.fields.id_reference.fields.bits))),
       activationTimestamp: BigInt(fields.parameters.fields.activation_timestamp),
       currentTickIndex: Number(asIntN(BigInt(fields.parameters.fields.current_tick_index.fields.bits))),
-      tickLowerIndex: Number(asIntN(BigInt(fields.parameters.fields.lower_tick_index.fields.bits))),
-      tickUpperIndex: Number(asIntN(BigInt(fields.parameters.fields.upper_tick_index.fields.bits))),
+      tickLowerIndex: Number(asIntN(BigInt(0n))),
+      tickUpperIndex: Number(asIntN(BigInt(0n))),
       currentSqrtPrice: BigInt(fields.parameters.fields.current_sqrt_price),
       cliffFeeNumerator: BigInt(fields.parameters.fields.cliff_fee_numerator),
       decayPeriod: BigInt(fields.parameters.fields.decay_period),
@@ -164,6 +167,7 @@ export function buildPool(objects: SuiObjectResponse): Pool {
       enabledFeeScheduler: Boolean(fields.parameters.fields.enabled_fee_scheduler),
       feeRate: Number(fields.parameters.fields.fee_rate),
       feeSchedulerMode: BigInt(fields.parameters.fields.fee_scheduler_mode),
+      isQuoteY: Boolean(fields.is_quote_y),
       feeSchedulerReductionFactor: BigInt(fields.parameters.fields.fee_scheduler_reduction_factor),
       filterPeriod: BigInt(fields.parameters.fields.filter_period),
       maxVolatilityAccumulator: Number(fields.parameters.fields.max_volatility_accumulator),

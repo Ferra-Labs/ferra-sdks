@@ -23,6 +23,7 @@ import { TickMath } from '../math/tick'
 import { checkValidSuiAddress, d } from '../utils'
 import { SplitPath } from './router'
 import { DammpoolsError, ConfigErrorCode, SwapErrorCode, UtilsErrorCode } from '../errors/errors'
+import { simulateSwap } from '../utils/swap-utils'
 
 /**
  * Swap module for executing token swaps in DAMM pools
@@ -148,7 +149,7 @@ export class SwapModule implements IModule {
       transaction.pure.bool(swapParams.a2b),
       transaction.pure.bool(swapParams.byAmountIn),
       transaction.pure.u64(swapParams.amount),
-      transaction.object(CLOCK_ADDRESS)
+      transaction.object(CLOCK_ADDRESS),
     ]
 
     transaction.moveCall({
@@ -191,15 +192,10 @@ export class SwapModule implements IModule {
    * @returns Structured swap data object
    */
   private transformSwapData(swapParams: PreSwapParams, simulationData: any) {
-    const calculatedAmountIn =
-      simulationData.amount_in && simulationData.fee_amount
-        ? new BN(simulationData.amount_in).add(new BN(simulationData.fee_amount)).toString()
-        : ''
-
     return {
       poolAddress: swapParams.pool.poolAddress,
       currentSqrtPrice: swapParams.currentSqrtPrice,
-      estimatedAmountIn: calculatedAmountIn,
+      estimatedAmountIn: simulationData.amount_in,
       estimatedAmountOut: simulationData.amount_out,
       estimatedEndSqrtPrice: simulationData.after_sqrt_price,
       estimatedFeeAmount: simulationData.fee_amount,
@@ -244,25 +240,19 @@ export class SwapModule implements IModule {
    */
   calculateRates(calculationParams: CalculateRatesParams): CalculateRatesResult {
     const { currentPool } = calculationParams
-    const poolData = transDammpoolDataWithoutTicks(currentPool)
+    const currentTimestampMs = new BN(Date.now())
 
-    let sortedTicks
-    if (calculationParams.a2b) {
-      sortedTicks = calculationParams.swapTicks.sort((tickA, tickB) => {
-        return tickB.index - tickA.index
-      })
-    } else {
-      sortedTicks = calculationParams.swapTicks.sort((tickA, tickB) => {
-        return tickA.index - tickB.index
-      })
-    }
+    const sortedTicks = calculationParams.swapTicks.sort((tickA, tickB) => {
+      return tickA.index - tickB.index
+    })
 
-    const swapCalculationResult = computeSwap(
-      poolData,
+    const swapCalculationResult = simulateSwap(
+      currentPool,
+      sortedTicks,
       calculationParams.a2b,
       calculationParams.byAmountIn,
       calculationParams.amount,
-      sortedTicks
+      currentTimestampMs,
     )
 
     let hasExceededLimits = false
@@ -273,11 +263,11 @@ export class SwapModule implements IModule {
     }
 
     const priceLimit = SwapUtils.getDefaultSqrtPriceLimit(calculationParams.a2b)
-    if (calculationParams.a2b && swapCalculationResult.nextSqrtPrice.lt(priceLimit)) {
+    if (calculationParams.a2b && swapCalculationResult.afterSqrtPrice.lt(priceLimit)) {
       hasExceededLimits = true
     }
 
-    if (!calculationParams.a2b && swapCalculationResult.nextSqrtPrice.gt(priceLimit)) {
+    if (!calculationParams.a2b && swapCalculationResult.afterSqrtPrice.gt(priceLimit)) {
       hasExceededLimits = true
     }
 
@@ -291,7 +281,7 @@ export class SwapModule implements IModule {
     }
 
     let initialPrice = TickMath.sqrtPriceX64ToPrice(
-      poolData.currentSqrtPrice,
+      new BN(currentPool.currentSqrtPrice),
       calculationParams.decimalsA,
       calculationParams.decimalsB
     ).toNumber()
@@ -306,13 +296,13 @@ export class SwapModule implements IModule {
       .div(swapCalculationResult.amountIn.toNumber())
       .mul(decimalAdjustment)
       .toNumber()
-    
+
     const priceImpactPercentage = ((executionPrice - initialPrice) / initialPrice) * 100
 
     return {
       estimatedAmountIn: swapCalculationResult.amountIn,
       estimatedAmountOut: swapCalculationResult.amountOut,
-      estimatedEndSqrtPrice: swapCalculationResult.nextSqrtPrice,
+      estimatedEndSqrtPrice: swapCalculationResult.afterSqrtPrice,
       estimatedFeeAmount: swapCalculationResult.feeAmount,
       isExceed: hasExceededLimits,
       extraComputeLimit: additionalComputeLimit,
@@ -324,10 +314,30 @@ export class SwapModule implements IModule {
   }
 
   /**
-   * Creates a complete swap transaction with automatic coin management
-   * @param swapParams - Parameters for swap execution
-   * @param gasEstimationConfig - Optional gas estimation configuration for SUI swaps
-   * @returns Promise resolving to executable transaction
+   * Creates a transaction for multi-hop swap execution
+   * Builds the complete swap path through multiple pools
+   * @param params - Swap parameters including path and partner info
+   * @returns Transaction ready for execution
+   * @example
+   * // First find the best route
+   * const route = await sdk.Router.getBestInternalRouter({
+   *   from: "0x2::sui::SUI",
+   *   target: "0x5d4b...::usdc::USDC",
+   *   amount: "1000000000",
+   *   byAmountIn: true
+   * });
+   *
+   * // Then create transaction
+   * const tx = await sdk.Router.createSwapTransactionPayload({
+   *   paths: route.paths,
+   *   partner: null,        // Or partner ID for fee sharing
+   *   byAmountIn: true
+   * });
+   *
+   * const result = await sdk.fullClient.signAndExecuteTransaction({
+   *   transaction: tx,
+   *   signer: keypair
+   * });
    */
   async createSwapTransactionPayload(
     swapParams: SwapParams,

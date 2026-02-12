@@ -218,7 +218,12 @@ export type Pool = {
   /**
    * The current sqrt price
    */
+  isQuoteY: boolean
+  /**
+   * The current sqrt price
+   */
   currentSqrtPrice: bigint
+  collectFeeMode: number
   currentTickIndex: number
   parameters: {
     currentSqrtPrice: bigint
@@ -229,6 +234,7 @@ export type Pool = {
     cliffFeeNumerator: bigint
     decayPeriod: bigint
     enabledDynamicFee: boolean
+    isQuoteY: boolean
     enabledFeeScheduler: boolean
     feeRate: number
     feeSchedulerMode: bigint
