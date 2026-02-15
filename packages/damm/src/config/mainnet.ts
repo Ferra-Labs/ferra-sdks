@@ -17,12 +17,12 @@ export const dammMainnet: SdkOptions = {
   },
   damm_pool: {
     package_id: '0x66fb6a132c415278c32ab52ecdc2bd73b08b649e396841f48f6f9cccd01b6bbb',
-    published_at: '0x66fb6a132c415278c32ab52ecdc2bd73b08b649e396841f48f6f9cccd01b6bbb',
+    published_at: '0x5810a6545d6046d98eee8867ed1106ab5fc472f36feda8acdd3f0a331968cef8',
     config: SDKConfig.dammConfig,
   },
   integrate: {
-    package_id: '0xbffb733e5fc037431fa953fb0c0ae1d273a098d25212bb46ac4a5e24d1a099ef',
-    published_at: '0xbffb733e5fc037431fa953fb0c0ae1d273a098d25212bb46ac4a5e24d1a099ef',
+    package_id: '0x8df3a90c236e6555bc5edc9c11165dbddf456814f8c670d03e729f92367ce473',
+    published_at: '0x8df3a90c236e6555bc5edc9c11165dbddf456814f8c670d03e729f92367ce473',
   },
   swapCountUrl: 'https://api.ferra.xyz/damm/swap/pools'
 }
