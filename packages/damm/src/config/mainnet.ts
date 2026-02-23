@@ -3,9 +3,9 @@ import { checkValidSuiAddress } from '../utils'
 
 const SDKConfig = {
   dammConfig: {
-    pools_id: '0xf7774e82131b6c581987000046826d1b902c7acba2887d26cc2bccfeff1ace01',
-    global_config_id: '0x872637215dbee83854692ac83237a34eaae8ef784d43548fc80ac6c7b5c8fdd1',
-    global_rewarder_vault_id: '0xafe43ac8ba302f77f9d9ba46ec1a1d43e748a474b7616a99242ee49ca31adfd5'
+    pools_id: '0x707ca2bee32fa27a27541831144f330dce20969258c92ac8c39f48c6682bd6eb',
+    global_config_id: '0x9e13acd1ba33e83a5097ecb1a43c9d267af7bc4d281614f4fafd2a973bbc993a',
+    global_rewarder_vault_id: '0x98118e92f85aecb83e36f738ee5cb906b2b6f2fb201c03fb7d898640247634c4'
   }
 }
 
@@ -16,13 +16,13 @@ export const dammMainnet: SdkOptions = {
     address: '0x0000000000000000000000000000000000000000000000000000000000000000',
   },
   damm_pool: {
-    package_id: '0x9c81b37498c1a49e18993b358fdf715154e36663f99147ef98b7a0c8bfbc9d4e',
-    published_at: '0x9c81b37498c1a49e18993b358fdf715154e36663f99147ef98b7a0c8bfbc9d4e',
+    package_id: '0x6615ce71ab4f4a9119cc612c04a9daf77206e23201ec5efedd6bf873b2a16fd2',
+    published_at: '0x6615ce71ab4f4a9119cc612c04a9daf77206e23201ec5efedd6bf873b2a16fd2',
     config: SDKConfig.dammConfig,
   },
   integrate: {
-    package_id: '0x37e8a1abf987431fa2c732808a45d3f4d307cd5ced734b920244540fd8be3a3e',
-    published_at: '0x37e8a1abf987431fa2c732808a45d3f4d307cd5ced734b920244540fd8be3a3e',
+    package_id: '0x1b6fe2c87cde17447fb09ea9af03f52f367118f3e3c17a108ff2d3c699b806bd',
+    published_at: '0x1b6fe2c87cde17447fb09ea9af03f52f367118f3e3c17a108ff2d3c699b806bd',
   },
   swapCountUrl: 'https://api.ferra.xyz/damm/swap/pools'
 }

@@ -1,6 +1,6 @@
 {
   "name": "@ferra-labs/damm",
-  "version": "v1.0.3",
+  "version": "v1.0.4",
   "private": false,
   "description": "SDK for DAMM Ferra",
   "main": "dist/index.js",
