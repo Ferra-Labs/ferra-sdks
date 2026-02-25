@@ -796,6 +796,8 @@ export class PositionModule implements IModule {
           primaryCoinBInputs.targetCoin,
           tx.pure.u64(params.max_amount_a),
           tx.pure.u64(params.max_amount_b),
+          tx.pure.u32(Number(tick_lower)),
+          tx.pure.u32(Number(tick_upper)),
           tx.pure.u128(params.delta_liquidity),
           tx.object(CLOCK_ADDRESS),
         ],
