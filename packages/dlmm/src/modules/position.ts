@@ -13,12 +13,27 @@ import { Transaction } from '@mysten/sui/transactions'
 import { inspect } from 'util'
 import { bcs } from '@mysten/sui/bcs'
 import { CLOCK_ADDRESS } from '../types'
+import { SuiGrpcClient } from '@mysten/sui/grpc'
+
+export const LBPositionStruct = bcs.struct('LBPosition', {
+  id: bcs.Address,
+  pair_id: bcs.Address,
+  my_id: bcs.Address,
+  saved_fees_x: bcs.u128(),
+  saved_fees_y: bcs.u128(),
+  saved_rewards: bcs.vector(bcs.u128()),
+  coin_type_a: bcs.String,
+  coin_type_b: bcs.String,
+  lock_until: bcs.u64(),
+  total_bins: bcs.u64(),
+})
 
 /**
  * Module for managing DLMM positions
  * Handles fetching and parsing of liquidity positions and their associated bins
  */
 export class PositionModule implements IModule {
+  static _grpcClient: SuiGrpcClient
   protected _sdk: FerraDlmmSDK
 
   /**
@@ -42,6 +57,17 @@ export class PositionModule implements IModule {
     return this._sdk
   }
 
+  static get grpcClient() {
+    if (!this._grpcClient) {
+      this._grpcClient = new SuiGrpcClient({
+        network: 'mainnet',
+        baseUrl: 'https://wallet-rpc.mainnet.sui.io',
+      })
+    }
+
+    return this._grpcClient
+  }
+
   /**
    * Fetch a single liquidity position by ID
    * @param positionId - The object ID of the position to fetch
@@ -53,25 +79,27 @@ export class PositionModule implements IModule {
     if (!isValidSuiAddress(positionId)) {
       throw new Error('Position not found')
     }
-
-    const suiClient = this.sdk.fullClient
+    const {
+      dlmm_pool: { package_id },
+    } = this.sdk.sdkOptions
 
     // Fetch position object from chain
-    const lpPairWapper = await suiClient.getObject({
-      id: positionId,
-      options: {
-        showContent: true,
-        showType: true,
-      },
-    })
+    const lpPairWapper = (
+      await PositionModule.grpcClient.ledgerService.getObject({
+        objectId: positionId,
+        readMask: {
+          paths: ['object_id', 'contents', 'object_type'],
+        },
+      })
+    ).response.object
 
     // Validate response has required data
-    if (!lpPairWapper.data || !lpPairWapper.data.type) {
+    if (!lpPairWapper || lpPairWapper?.objectType !== `${package_id}::lb_position::LBPosition` || !lpPairWapper.contents?.value) {
       throw new Error('Position not found')
     }
 
     // Parse position content from on-chain data
-    const data = this.parsePositionContent(lpPairWapper.data.type, lpPairWapper.data.content, lpPairWapper.data.version)
+    const data = this.parsePositionContent(LBPositionStruct.parse(lpPairWapper.contents?.value), "0")
 
     if (!data) {
       throw new Error('Invalid position content')
@@ -85,11 +113,10 @@ export class PositionModule implements IModule {
    * @returns Promise resolving to array of LBPosition data
    * @throws DlmmPairsError if sender address is invalid
    */
-  public async getLbPositions(pairIds: string[]): Promise<LBPosition[]> {
-    const suiClient = this.sdk.fullClient
+  public async getLbPositions(pairIds: string[], limit = 10): Promise<LBPosition[]> {
     const sender = this.sdk.senderAddress
     const {
-      dlmm_pool: { package_id, published_at },
+      dlmm_pool: { package_id },
     } = this.sdk.sdkOptions
 
     // Validate sender address
@@ -100,44 +127,36 @@ export class PositionModule implements IModule {
       )
     }
 
-    // Create RPC batcher for paginated fetching
-    const positionsFetcher = new RpcBatcher(async () => {
-      const objects = await suiClient.getOwnedObjects({
+    const positions: (typeof LBPositionStruct)['$inferType'][] = []
+    let cursor: Uint8Array | undefined = undefined
+    for (let index = 0; index < limit; index++) {
+      const res = await PositionModule.grpcClient.stateService.listOwnedObjects({
+        objectType: `${package_id}::lb_position::LBPosition`,
         owner: sender,
-        filter: {
-          MatchAny: [
-            {
-              StructType: `${package_id}::lb_position::LBPosition`,
-            },
-            {
-              StructType: `${published_at}::lb_position::LBPosition`,
-            },
-          ],
-        },
-        options: {
-          showContent: true,
-          showType: true,
+        pageSize: 1000,
+        pageToken: cursor,
+        readMask: {
+          paths: ['object_id', 'contents'],
         },
       })
 
-      return {
-        data: objects.data,
-        hasNextPage: objects.hasNextPage,
-        nextCursor: objects.nextCursor ?? null,
+      for (const pos of res.response.objects) {
+        if (pos.contents?.value) {
+          positions.push(LBPositionStruct.parse(pos.contents.value))
+        }
       }
-    })
 
-    // Fetch all positions
-    const positions = await positionsFetcher.fetchAll()
+      if (res.response.nextPageToken) {
+        cursor = res.response.nextPageToken
+      } else {
+        break
+      }
+    }
 
     // Parse and filter valid positions
     return positions
       .map((p) => {
-        if (!p.data || !p.data.type) {
-          return null
-        }
-
-        const data = this.parsePositionContent(p.data.type, p.data.content, p.data.version)
+        const data = this.parsePositionContent(p, '0')
 
         if (!data) {
           return null
@@ -418,8 +437,8 @@ export class PositionModule implements IModule {
       transactionBlock: await tx.build({ client: this.sdk.fullClient }),
     })
 
-    const rewardEvents = res.events as CollectPositionRewardsEvent[];
-    
+    const rewardEvents = res.events as CollectPositionRewardsEvent[]
+
     for (const event of rewardEvents ?? []) {
       rewards.push({
         amount: event.parsedJson.amount,
@@ -772,35 +791,12 @@ export class PositionModule implements IModule {
    * @param version - Version string of the position
    * @returns Parsed LBPosition or null if invalid
    */
-  private parsePositionContent(typeTag: string, contents: SuiParsedData | undefined | null, version: string): LBPosition | null {
-    // Parse and validate struct tag
-    const structTag = parseStructTag(typeTag)
-    const {
-      dlmm_pool: { package_id, published_at },
-    } = this.sdk.sdkOptions
-
-    // Validate position type matches expected structure
-    if (
-      contents?.dataType !== 'moveObject' ||
-      (structTag.address !== package_id && structTag.address !== published_at) ||
-      structTag.module !== 'lb_position' ||
-      structTag.name !== 'LBPosition'
-    ) {
-      return null
-    }
-
-    // Cast to position on-chain type
-    const positionOnChain = contents?.fields as LbPositionOnChain
-
-    if (!positionOnChain) {
-      return null
-    }
-
+  private parsePositionContent(positionOnChain: (typeof LBPositionStruct)['$inferType'], version: string): LBPosition | null {
     // Convert to LBPosition format
     return {
-      id: positionOnChain.id.id,
-      tokenXType: positionOnChain.coin_type_a.fields.name,
-      tokenYType: positionOnChain.coin_type_b.fields.name,
+      id: positionOnChain.id,
+      tokenXType: positionOnChain.coin_type_a,
+      tokenYType: positionOnChain.coin_type_b,
       pair_id: positionOnChain.pair_id,
       saved_fees_x: BigInt(positionOnChain.saved_fees_x),
       saved_fees_y: BigInt(positionOnChain.saved_fees_y),
