@@ -1,7 +1,7 @@
 import { isValidSuiAddress, normalizeStructTag, parseStructTag } from '@mysten/sui/utils'
-import { IModule } from '../interfaces/IModule'
-import { FerraDlmmSDK } from '../sdk'
-import { CachedContent } from '../utils/cached-content'
+import { IModule } from '../interfaces/IModule.js'
+import { FerraDlmmSDK } from '../sdk.js'
+import { CachedContent } from '../utils/cached-content.js'
 import {
   AddLiquidityParams,
   LBPair,
@@ -11,16 +11,15 @@ import {
   PairInfo,
   Pairs,
   RemoveLiquidityParams,
-} from '../interfaces/IPair'
-import { SuiObjectResponse, SuiParsedData } from '@mysten/sui/client'
-import { PrepareSwapParams } from '../interfaces/ISwap'
-import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
-import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
+} from '../interfaces/IPair.js'
+import { SuiObjectResponse, SuiParsedData } from '@mysten/sui/jsonRpc'
+import { PrepareSwapParams } from '../interfaces/ISwap.js'
+import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils/index.js'
+import { DlmmPairsError, UtilsErrorCode } from '../errors/errors.js'
 import { Transaction, type TransactionResult, coinWithBalance } from '@mysten/sui/transactions'
-import { CoinAssist } from '../math'
+import { CoinAssist } from '../math/index.js'
 import { bcs, BcsType } from '@mysten/sui/bcs'
-import { BinReserveOnchain } from '../interfaces/IPosition'
-import { BinReserves } from '../utils/bin_helper'
+import { BinReserves } from '../utils/bin_helper.js'
 
 const DynamicFieldNode = <K extends BcsType<any>, V extends BcsType<any>>(key: K, value: V) => {
   return bcs.struct('DynamicFieldNode', {

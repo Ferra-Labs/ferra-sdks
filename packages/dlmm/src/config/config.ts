@@ -1,7 +1,7 @@
-import FerraDlmmSDK from '../main'
-import { initMainnetSDK } from './mainnet'
-import { initTestnetSDK } from './testnet'
-import { initBetaSDK } from './beta'
+import FerraDlmmSDK from '../main.js'
+import { initMainnetSDK } from './mainnet.js'
+import { initTestnetSDK } from './testnet.js'
+import { initBetaSDK } from './beta.js'
 
 interface InitFerraSDKOptions {
   network: 'mainnet' | 'testnet' | 'beta'

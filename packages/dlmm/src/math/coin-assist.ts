@@ -1,7 +1,7 @@
-import { SuiMoveObject, SuiTransactionBlockResponse } from '@mysten/sui/client'
-import { CoinAsset, FaucetCoin } from '../types'
-import { extractStructTagFromType, normalizeCoinType } from '../utils/contracts'
-import { SuiAddressType } from '../types/sui'
+import { SuiMoveObject, SuiTransactionBlockResponse } from '@mysten/sui/jsonRpc'
+import { CoinAsset, FaucetCoin } from '../types/index.js'
+import { extractStructTagFromType, normalizeCoinType } from '../utils/contracts.js'
+import { SuiAddressType } from '../types/sui.js'
 
 const COIN_TYPE = '0x2::coin::Coin'
 const COIN_TYPE_ARG_REGEX = /^0x2::coin::Coin<(.+)>$/

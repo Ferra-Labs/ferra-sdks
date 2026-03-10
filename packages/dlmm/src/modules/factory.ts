@@ -1,11 +1,9 @@
-import { SuiClient } from '@mysten/sui/client'
-import { CreateLBPairParams } from '../interfaces/IFactory'
-import { IModule } from '../interfaces/IModule'
-import { FerraDlmmSDK } from '../sdk'
-import { CachedContent } from '../utils/cached-content'
-import { isSortedSymbols, TransactionUtil } from '../utils'
+import { CreateLBPairParams } from '../interfaces/IFactory.js'
+import { IModule } from '../interfaces/IModule.js'
+import { FerraDlmmSDK } from '../sdk.js'
+import { CachedContent } from '../utils/cached-content.js'
+import { isSortedSymbols, TransactionUtil } from '../utils/index.js'
 import { Transaction } from '@mysten/sui/transactions'
-import { bcs } from '@mysten/bcs'
 import { normalizeSuiAddress } from '@mysten/sui/utils'
 
 /**

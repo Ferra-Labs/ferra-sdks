@@ -1,3 +1,3 @@
-export * from './coin-assist'
-export * from './utils'
-export * from './bin'
+export * from './coin-assist.js'
+export * from './utils.js'
+export * from './bin.js'

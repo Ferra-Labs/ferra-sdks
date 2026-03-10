@@ -1,4 +1,4 @@
-import { Address, ObjectId, U128, U16, U32, U64 } from '../types/basic-type'
+import { Address, ObjectId, U128, U16, U32, U64 } from '../types/basic-type.js'
 import { Transaction, TransactionResult } from '@mysten/sui/transactions'
 
 // ===== Helper Types =====

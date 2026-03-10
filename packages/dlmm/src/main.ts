@@ -1,4 +1,4 @@
-import { FerraDlmmSDK, SdkOptions } from './sdk'
+import { FerraDlmmSDK, SdkOptions } from './sdk.js'
 
 export { FerraDlmmSDK }
 export type { SdkOptions }

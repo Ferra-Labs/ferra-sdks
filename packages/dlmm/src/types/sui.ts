@@ -1,6 +1,6 @@
 import { TransactionArgument } from '@mysten/sui/transactions'
-import Decimal from 'decimal.js'
-import { DlmmPairsError, TypesErrorCode } from '../errors/errors'
+import { Decimal } from 'decimal.js'
+import { DlmmPairsError, TypesErrorCode } from '../errors/errors.js'
 
 /**
  * Represents a SUI address, which is a string.

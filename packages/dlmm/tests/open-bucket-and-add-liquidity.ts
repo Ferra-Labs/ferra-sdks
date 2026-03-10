@@ -1,7 +1,7 @@
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 import { fromDecimalsAmount, initFerraSDK, DistributionUtils, toDecimalsAmount, TransactionUtil } from '../src'
 import { fromBase64 } from '@mysten/sui/utils'
-import Decimal from 'decimal.js'
+import { Decimal } from 'decimal.js'
 import { inspect } from 'node:util'
 import { Transaction } from '@mysten/sui/transactions'
 import { decodeSuiPrivateKey } from '@mysten/sui/cryptography'

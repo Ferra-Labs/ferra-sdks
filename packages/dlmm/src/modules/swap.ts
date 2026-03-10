@@ -1,14 +1,14 @@
-import { IModule } from '../interfaces/IModule'
-import { FerraDlmmSDK } from '../sdk'
-import { CachedContent } from '../utils/cached-content'
-import { LBPair } from '../interfaces/IPair'
-import { CalculateRatesResult, CalculateSwapParams, PrepareSwapParams } from '../interfaces/ISwap'
-import { checkValidSuiAddress, SwapUtils, TransactionUtil } from '../utils'
-import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
+import { IModule } from '../interfaces/IModule.js'
+import { FerraDlmmSDK } from '../sdk.js'
+import { CachedContent } from '../utils/cached-content.js'
+import { LBPair } from '../interfaces/IPair.js'
+import { CalculateRatesResult, CalculateSwapParams, PrepareSwapParams } from '../interfaces/ISwap.js'
+import { checkValidSuiAddress, SwapUtils, TransactionUtil } from '../utils/index.js'
+import { DlmmPairsError, UtilsErrorCode } from '../errors/errors.js'
 import { coinWithBalance, Transaction, type TransactionResult } from '@mysten/sui/transactions'
-import { BinMath, CoinAssist } from '../math'
+import { BinMath, CoinAssist } from '../math/index.js'
 
-import Decimal from 'decimal.js'
+import { Decimal } from 'decimal.js'
 import { SUI_DECIMALS } from '@mysten/sui/utils'
 
 const MAX_LOOP_ITERATIONS = 70

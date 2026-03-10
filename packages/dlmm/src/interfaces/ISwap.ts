@@ -1,5 +1,5 @@
 import type { Transaction, TransactionResult } from "@mysten/sui/transactions";
-import { LbPairBinData } from "./IPair";
+import { LbPairBinData } from "./IPair.js";
 
 export type CoinPairType = {
   coinTypeX: string

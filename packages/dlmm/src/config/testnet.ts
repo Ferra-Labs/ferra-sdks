@@ -1,5 +1,5 @@
-import FerraDlmmSDK, { SdkOptions } from '../main'
-import { checkValidSuiAddress } from '../utils'
+import FerraDlmmSDK, { SdkOptions } from '../main.js'
+import { checkValidSuiAddress } from '../utils/index.js'
 
 const SDKConfig = {
   dlmmConfig: {

@@ -1,4 +1,4 @@
-import { SuiObjectIdType } from './sui'
+import { SuiObjectIdType } from './sui.js'
 
 /**
  * Represents configuration for tokens.

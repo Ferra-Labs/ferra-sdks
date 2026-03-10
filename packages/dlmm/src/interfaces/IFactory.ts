@@ -1,4 +1,4 @@
-import { Address, U256 } from "../types/basic-type";
+import { Address, U256 } from "../types/basic-type.js";
 
 // ===== Constants =====
 export const LB_FACTORY_CONSTANTS = {

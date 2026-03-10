@@ -1,4 +1,4 @@
-import { LBPair, LbPairBinData } from '../interfaces'
+import { LBPair, LbPairBinData } from '../interfaces/index.js'
 
 const MAX_LOOP_ITERATIONS = 7000000000000
 const SCALE_OFFSET_64X64 = 64

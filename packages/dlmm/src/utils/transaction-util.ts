@@ -1,8 +1,8 @@
 import { Transaction, TransactionResult } from '@mysten/sui/transactions'
-import { CreateFactoryParams, CreateLBPairParams } from '../interfaces/IFactory'
+import { CreateFactoryParams, CreateLBPairParams } from '../interfaces/IFactory.js'
 import { isValidSuiAddress } from '@mysten/sui/utils'
-import Decimal from 'decimal.js'
-import { SdkOptions } from '../sdk'
+import { Decimal } from 'decimal.js'
+import { SdkOptions } from '../sdk.js'
 import {
   LBPair,
   AddLiquidityTxParams,
@@ -10,13 +10,12 @@ import {
   ClosePositionParams,
   CollectPositionRewardsParams,
   CollectPositionFeesParams,
-} from '../interfaces/IPair'
-import { CoinAssist } from '../math'
-import { CLOCK_ADDRESS, CoinAsset } from '../types'
-import { SwapParams } from '../interfaces/ISwap'
-import { ConfigErrorCode, DlmmPairsError } from '../errors/errors'
-import { LockPositionParams } from '../interfaces'
-import { encodeU32ToU128, encodeU64ToU256 } from './packed'
+} from '../interfaces/IPair.js'
+import { CoinAssist } from '../math/index.js'
+import { CLOCK_ADDRESS, CoinAsset } from '../types/index.js'
+import { SwapParams } from '../interfaces/ISwap.js'
+import { ConfigErrorCode, DlmmPairsError } from '../errors/errors.js'
+import { LockPositionParams } from '../interfaces/index.js'
 
 /**
  * Utility class for building DLMM protocol transactions

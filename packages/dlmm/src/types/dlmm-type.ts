@@ -1,4 +1,4 @@
-import { SuiAddressType, SuiObjectIdType } from './sui'
+import { SuiAddressType, SuiObjectIdType } from './sui.js'
 
 /**
  * Represents a coin asset with address, object ID, and balance information.

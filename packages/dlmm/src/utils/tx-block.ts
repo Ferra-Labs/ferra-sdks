@@ -1,5 +1,5 @@
 import { Transaction } from '@mysten/sui/transactions'
-import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
+import { DlmmPairsError, UtilsErrorCode } from '../errors/errors.js'
 import { isValidSuiAddress } from '@mysten/sui/utils'
 
 /**

@@ -1,13 +1,13 @@
-import { CoinBalance, SuiHTTPTransport } from '@mysten/sui/client'
+import { CoinBalance, JsonRpcHTTPTransport, SuiHTTPTransportError } from '@mysten/sui/jsonRpc'
 import { SuiGrpcClient } from '@mysten/sui/grpc'
-import { PairModule } from './modules/pair'
-import { QuoterModule } from './modules/quoter'
-import { FactoryModule } from './modules/factory'
-import { CachedContent, cacheTime24h, extractStructTagFromType, getFutureTime, patchFixSuiObjectId } from './utils'
-import { DlmmConfig, CoinAsset, Package, SuiResource, SuiAddressType, TokenConfig } from './types'
-import { RpcModule } from './utils/rpc'
-import { PositionModule } from './modules/position'
-import { SwapModule } from './modules/swap'
+import { PairModule } from './modules/pair.js'
+import { QuoterModule } from './modules/quoter.js'
+import { FactoryModule } from './modules/factory.js'
+import { CachedContent, cacheTime24h, extractStructTagFromType, getFutureTime, patchFixSuiObjectId } from './utils/index.js'
+import { DlmmConfig, CoinAsset, Package, SuiResource, SuiAddressType, TokenConfig } from './types/index.js'
+import { RpcModule } from './utils/rpc.js'
+import { PositionModule } from './modules/position.js'
+import { SwapModule } from './modules/swap.js'
 
 /**
  * Represents options and configurations for an SDK.
@@ -96,9 +96,9 @@ export class FerraDlmmSDK {
   constructor(options: SdkOptions) {
     this._sdkOptions = options
     this._rpcModule = new RpcModule({
-      transport: new SuiHTTPTransport({
+      network: 'mainnet',
+      transport: new JsonRpcHTTPTransport({
         url: options.fullRpcUrl,
-        fetch: fetchRpc
       })
     })
     try {

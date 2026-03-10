@@ -1,7 +1,7 @@
 import { normalizeSuiObjectId } from '@mysten/sui/utils'
-import { SuiAddressType, SuiStructTag } from '../types/sui'
-import { CoinAssist, GAS_TYPE_ARG, GAS_TYPE_ARG_LONG } from '../math/coin-assist'
-import { removeHexPrefix } from './hex'
+import { SuiAddressType, SuiStructTag } from '../types/sui.js'
+import { CoinAssist, GAS_TYPE_ARG, GAS_TYPE_ARG_LONG } from '../math/coin-assist.js'
+import { removeHexPrefix } from './hex.js'
 
 const EQUAL = 0
 const LESS_THAN = 1

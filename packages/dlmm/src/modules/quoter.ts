@@ -1,6 +1,6 @@
-import { IModule } from "../interfaces/IModule"
-import { FerraDlmmSDK } from "../sdk"
-import { CachedContent } from "../utils/cached-content"
+import { IModule } from "../interfaces/IModule.js"
+import { FerraDlmmSDK } from "../sdk.js"
+import { CachedContent } from "../utils/cached-content.js"
 
 export class QuoterModule implements IModule {
     protected _sdk: FerraDlmmSDK

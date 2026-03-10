@@ -6,19 +6,19 @@ import {
   PaginatedObjectsResponse,
   PaginatedTransactionResponse,
   QueryTransactionBlocksParams,
-  SuiClient,
+  SuiJsonRpcClient as SuiClient,
   SuiEventFilter,
   SuiObjectDataOptions,
   SuiObjectResponse,
   SuiObjectResponseQuery,
   SuiTransactionBlockResponse,
   TransactionFilter,
-} from '@mysten/sui/client'
+} from '@mysten/sui/jsonRpc'
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 import { Secp256k1Keypair } from '@mysten/sui/keypairs/secp256k1'
 
 
-import { DataPage, PaginationArgs, SuiObjectIdType } from '../types'
+import { DataPage, PaginationArgs, SuiObjectIdType } from '../types/index.js'
 
 /**
  * Represents a module for making RPC (Remote Procedure Call) requests.
@@ -182,7 +182,7 @@ export class RpcModule extends SuiClient {
  * @throws {Error} - Throws an error if the sender is empty or devInspect fails.
  */
   async calculationTxGas(tx: Transaction): Promise<number> {
-    const { sender } = tx.blockData
+    const { sender } = tx.getData()
 
     if (sender === undefined) {
       throw Error('Transaction sender is required')
@@ -190,7 +190,7 @@ export class RpcModule extends SuiClient {
 
     const devResult = await this.devInspectTransactionBlock({
       transactionBlock: tx,
-      sender,
+      sender: sender ?? '',
     })
 
     // CHECK FOR ERRORS FIRST

@@ -2,12 +2,12 @@ import { fromB64, fromHEX } from '@mysten/bcs'
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 import { Secp256k1Keypair } from '@mysten/sui/keypairs/secp256k1'
 
-import { NFT } from '../types/sui'
-import { extractStructTagFromType } from './contracts'
-import { d, decimalsMultiplier } from './numbers'
+import { NFT } from '../types/sui.js'
+import { extractStructTagFromType } from './contracts.js'
+import { d, decimalsMultiplier } from './numbers.js'
 import {
   getObjectDisplay,
-} from './objects'
+} from './objects.js'
 
 /**
  * Converts an amount to a decimal value, based on the number of decimals specified.

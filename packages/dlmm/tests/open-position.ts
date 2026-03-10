@@ -6,7 +6,7 @@ import {
   toDecimalsAmount,
 } from '../src'
 import { fromBase64 } from '@mysten/sui/utils'
-import Decimal from 'decimal.js'
+import { Decimal } from 'decimal.js'
 
 export async function main() {
   const secret = process.env.SUI_WALLET_SECRET || ''

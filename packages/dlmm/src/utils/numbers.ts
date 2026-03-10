@@ -1,4 +1,4 @@
-import Decimal from 'decimal.js'
+import { Decimal } from 'decimal.js'
 
 export function d(value?: Decimal.Value): Decimal.Instance {
   if (Decimal.isDecimal(value)) {

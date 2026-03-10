@@ -1,4 +1,4 @@
-import { SuiResource } from '../types/sui'
+import { SuiResource } from '../types/sui.js'
 
 export const cacheTime5min = 5 * 60 * 1000
 export const cacheTime24h = 24 * 60 * 60 * 1000

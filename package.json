@@ -22,8 +22,6 @@
     "@changesets/cli": "^2.29.5",
     "@commitlint/cli": "^17.8.1",
     "@commitlint/config-conventional": "^17.8.1",
-    "@mysten/bcs": "^1.6.3",
-    "@mysten/sui": "^1.45.2",
     "@types/node": "^20.19.1",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",

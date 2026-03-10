@@ -1,18 +1,18 @@
 import { isValidSuiAddress, normalizeStructTag, parseStructTag } from '@mysten/sui/utils'
-import { IModule } from '../interfaces/IModule'
-import { FerraDlmmSDK } from '../sdk'
-import { CachedContent } from '../utils/cached-content'
-import { Amounts, BinData, CollectPositionRewardsEvent, LBPair, LbPairBinData, LBPosition } from '../interfaces/IPair'
-import type { SuiClient, SuiObjectResponse, SuiParsedData } from '@mysten/sui/client'
-import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils'
-import { DlmmPairsError, UtilsErrorCode } from '../errors/errors'
-import { LbPositionOnChain, PositionBinOnchain, PositionInfoOnChain, PositionReward } from '../interfaces/IPosition'
+import { IModule } from '../interfaces/IModule.js'
+import { FerraDlmmSDK } from '../sdk.js'
+import { CachedContent } from '../utils/cached-content.js'
+import { Amounts, BinData, CollectPositionRewardsEvent, LBPair, LbPairBinData, LBPosition } from '../interfaces/IPair.js'
+import type { SuiObjectResponse, SuiParsedData } from '@mysten/sui/jsonRpc'
+import { checkValidSuiAddress, RpcBatcher, TransactionUtil } from '../utils/index.js'
+import { DlmmPairsError, UtilsErrorCode } from '../errors/errors.js'
+import { LbPositionOnChain, PositionBinOnchain, PositionInfoOnChain, PositionReward } from '../interfaces/IPosition.js'
 
-import { getAmountOutOfBin } from '../utils/bin_helper'
+import { getAmountOutOfBin } from '../utils/bin_helper.js'
 import { Transaction } from '@mysten/sui/transactions'
 import { inspect } from 'util'
 import { bcs } from '@mysten/sui/bcs'
-import { CLOCK_ADDRESS } from '../types'
+import { CLOCK_ADDRESS } from '../types/index.js'
 import { SuiGrpcClient } from '@mysten/sui/grpc'
 
 export const LBPositionStruct = bcs.struct('LBPosition', {
@@ -99,7 +99,7 @@ export class PositionModule implements IModule {
     }
 
     // Parse position content from on-chain data
-    const data = this.parsePositionContent(LBPositionStruct.parse(lpPairWapper.contents?.value), "0")
+    const data = this.parsePositionContent(LBPositionStruct.parse(lpPairWapper.contents?.value), '0')
 
     if (!data) {
       throw new Error('Invalid position content')

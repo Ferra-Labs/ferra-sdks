@@ -1,7 +1,7 @@
 import BN from 'bn.js'
-import Decimal from '../utils/decimal'
+import Decimal from '../utils/decimal.js'
 
-import { DlmmPairsError, MathErrorCode } from '../errors/errors'
+import { DlmmPairsError, MathErrorCode } from '../errors/errors.js'
 
 export const ZERO = new BN(0)
 

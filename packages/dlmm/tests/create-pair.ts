@@ -53,7 +53,7 @@ export async function main() {
   let res
 
   if (TEST) {
-    res = await sdk.fullClient.dryRunTransactionBlock({
+    res = await sdk.fullClient.sendSimulationTransaction({
       transactionBlock: await tx.build({ client: sdk.fullClient }),
     })
     const gas =
