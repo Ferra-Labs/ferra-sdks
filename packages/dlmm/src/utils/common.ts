@@ -1,4 +1,4 @@
-import { fromB64, fromHEX } from '@mysten/bcs'
+import { fromBase64, fromHex } from '@mysten/bcs'
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519'
 import { Secp256k1Keypair } from '@mysten/sui/keypairs/secp256k1'
 
@@ -65,7 +65,7 @@ export function secretKeyToEd25519Keypair(secretKey: string | Uint8Array, ecode:
     return Ed25519Keypair.fromSecretKey(new Uint8Array(key))
   }
 
-  const hexKey = ecode === 'hex' ? fromHEX(secretKey) : fromB64(secretKey)
+  const hexKey = ecode === 'hex' ? fromHex(secretKey) : fromBase64(secretKey)
   return Ed25519Keypair.fromSecretKey(hexKey)
 }
 
@@ -80,7 +80,7 @@ export function secretKeyToSecp256k1Keypair(secretKey: string | Uint8Array, ecod
     const key = Buffer.from(secretKey)
     return Secp256k1Keypair.fromSecretKey(new Uint8Array(key))
   }
-  const hexKey = ecode === 'hex' ? fromHEX(secretKey) : fromB64(secretKey)
+  const hexKey = ecode === 'hex' ? fromHex(secretKey) : fromBase64(secretKey)
   return Secp256k1Keypair.fromSecretKey(hexKey)
 }
 

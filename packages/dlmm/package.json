@@ -1,14 +1,14 @@
 {
   "name": "@ferra-labs/dlmm",
-  "version": "v1.1.0",
+  "version": "v1.1.1",
   "description": "Discrete Liquidity Market Maker SDK",
   "type": "module",
   "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
+  "module": "./dist/index.cjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
+      "import": "./dist/index.cjs",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
@@ -54,7 +54,7 @@
   },
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",
-    "@mysten/bcs": "^1.9.2",
+    "@mysten/bcs": "^2.0.2",
     "@mysten/sui": "2.6.0",
     "@types/cors": "^2.8.13",
     "@types/jest": "^29.0.0",
@@ -80,7 +80,7 @@
     "typescript": "^5.4.5"
   },
   "peerDependencies": {
-    "@mysten/bcs": ">=0.8.1",
+    "@mysten/bcs": ">=2.0.0",
     "@mysten/sui": ">=2.0.0"
   },
   "dependencies": {
